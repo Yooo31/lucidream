@@ -12,9 +12,10 @@ export type StorageDirectoryUri = AudioDirectoryUri | DrawingDirectoryUri | Expo
 export type AudioFilePath = `${AudioDirectoryUri}/${string}.m4a`;
 export type DrawingFilePath = `${DrawingDirectoryUri}/${string}.png`;
 export type CsvFilePath = `${ExportDirectoryUri}/${string}.csv`;
-export type StoredFilePath = AudioFilePath | DrawingFilePath | CsvFilePath;
+export type PdfFilePath = `${ExportDirectoryUri}/${string}.pdf`;
+export type StoredFilePath = AudioFilePath | DrawingFilePath | CsvFilePath | PdfFilePath;
 
-export type StoredFileKind = 'audio' | 'drawing' | 'export';
+export type StoredFileKind = 'audio' | 'drawing' | 'export' | 'exportPdf';
 export type FileContentEncoding = 'utf8' | 'base64';
 
 export interface SaveFileInput {

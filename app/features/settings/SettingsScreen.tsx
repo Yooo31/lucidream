@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import {
   DEFAULT_REALITY_CHECK_SETTINGS,
@@ -9,7 +9,7 @@ import {
   type WbtbSettings,
 } from '../../domain';
 import { useCompositionRoot } from '../../composition';
-import type { ExportDreamsCsvResult } from '../../services';
+import type { ExportDreamsCsvResult, ExportDreamsPdfResult } from '../../services';
 import {
   THEME_PALETTES,
   useTheme,
@@ -60,6 +60,10 @@ interface DreamsCsvExporter {
   execute(): Promise<ExportDreamsCsvResult>;
 }
 
+interface DreamsPdfExporter {
+  execute(): Promise<ExportDreamsPdfResult>;
+}
+
 export interface SettingsScreenViewProps {
   initialSettings: ThemeSettings;
   initialRealityCheckSettings: RealityCheckSettings;
@@ -73,6 +77,7 @@ export interface SettingsScreenViewProps {
   loadWbtbSettingsUseCase: WbtbSettingsReader;
   saveWbtbSettingsUseCase: WbtbSettingsWriter;
   exportDreamsCsvUseCase: DreamsCsvExporter;
+  exportDreamsPdfUseCase: DreamsPdfExporter;
   onApplyThemeSettings: (settings: ThemeSettings) => void;
   onOpenLicenseScreen?: () => void;
 }
@@ -318,6 +323,7 @@ export function SettingsScreenView({
   loadWbtbSettingsUseCase,
   saveWbtbSettingsUseCase,
   exportDreamsCsvUseCase,
+  exportDreamsPdfUseCase,
   onApplyThemeSettings,
   onOpenLicenseScreen,
 }: SettingsScreenViewProps) {
@@ -355,6 +361,8 @@ export function SettingsScreenView({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [lastExportedPdfPath, setLastExportedPdfPath] = useState<string | null>(null);
 
   useEffect(() => {
     setSleepStart(formatMinuteOfDay(initialSettings.sleepWindow.startMinutes));
@@ -578,6 +586,76 @@ export function SettingsScreenView({
     }
   };
 
+  const handleExportDreamsPdf = async () => {
+    if (isExportingPdf) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsExportingPdf(true);
+
+    try {
+      const result = await exportDreamsPdfUseCase.execute();
+
+      if (!result.ok) {
+        if (result.code === 'EXPORT_NOT_AVAILABLE') {
+          setErrorMessage(
+            [
+              'PDF export is available on MEDIUM and PRO only.',
+              'Change your local license to unlock it.',
+            ].join(' '),
+          );
+          return;
+        }
+
+        setErrorMessage('Unable to export dreams to PDF right now.');
+        return;
+      }
+
+      setLastExportedPdfPath(result.filePath);
+      setSuccessMessage(
+        `PDF exported locally (${result.exportedDreamCount} dreams): ${result.filePath}`,
+      );
+    } catch {
+      setErrorMessage('Unable to export dreams to PDF right now.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleOpenLastPdf = async () => {
+    if (lastExportedPdfPath === null) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      await Linking.openURL(lastExportedPdfPath);
+    } catch {
+      setErrorMessage('Unable to open the local PDF file on this device.');
+    }
+  };
+
+  const handleShareLastPdf = async () => {
+    if (lastExportedPdfPath === null) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      await Share.share({
+        title: 'Dream journal PDF',
+        message: lastExportedPdfPath,
+        url: lastExportedPdfPath,
+      });
+    } catch {
+      setErrorMessage('Unable to share the local PDF file right now.');
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: activeThemePalette.background }]}>
       <Text
@@ -639,6 +717,66 @@ export function SettingsScreenView({
             style={[styles.secondaryActionButtonText, { color: activeThemePalette.textPrimary }]}
           >
             {isExporting ? 'Exporting CSV...' : 'Export dreams as CSV'}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={isExportingPdf}
+          onPress={handleExportDreamsPdf}
+          style={[
+            styles.secondaryActionButton,
+            {
+              borderColor: activeThemePalette.textSecondary,
+              backgroundColor: 'transparent',
+              opacity: isExportingPdf ? 0.7 : 1,
+            },
+          ]}
+          testID="settings-export-dreams-pdf-button"
+        >
+          <Text
+            style={[styles.secondaryActionButtonText, { color: activeThemePalette.textPrimary }]}
+          >
+            {isExportingPdf ? 'Exporting PDF...' : 'Export dreams as PDF'}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={lastExportedPdfPath === null}
+          onPress={handleOpenLastPdf}
+          style={[
+            styles.secondaryActionButton,
+            {
+              borderColor: activeThemePalette.textSecondary,
+              backgroundColor: 'transparent',
+              opacity: lastExportedPdfPath === null ? 0.6 : 1,
+            },
+          ]}
+          testID="settings-open-last-pdf-button"
+        >
+          <Text
+            style={[styles.secondaryActionButtonText, { color: activeThemePalette.textPrimary }]}
+          >
+            Open last PDF
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={lastExportedPdfPath === null}
+          onPress={handleShareLastPdf}
+          style={[
+            styles.secondaryActionButton,
+            {
+              borderColor: activeThemePalette.textSecondary,
+              backgroundColor: 'transparent',
+              opacity: lastExportedPdfPath === null ? 0.6 : 1,
+            },
+          ]}
+          testID="settings-share-last-pdf-button"
+        >
+          <Text
+            style={[styles.secondaryActionButtonText, { color: activeThemePalette.textPrimary }]}
+          >
+            Share last PDF
           </Text>
         </Pressable>
       </View>
@@ -1085,6 +1223,7 @@ export function SettingsScreen({ onOpenLicenseScreen }: SettingsScreenProps) {
       loadWbtbSettingsUseCase={useCases.getWbtbSettingsUseCase}
       saveWbtbSettingsUseCase={useCases.saveWbtbSettingsUseCase}
       exportDreamsCsvUseCase={useCases.exportDreamsCsvUseCase}
+      exportDreamsPdfUseCase={useCases.exportDreamsPdfUseCase}
       onApplyThemeSettings={applyThemeSettings}
       {...(onOpenLicenseScreen ? { onOpenLicenseScreen } : {})}
     />

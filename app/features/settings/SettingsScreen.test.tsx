@@ -9,6 +9,7 @@ import {
 } from '../../domain';
 import {
   type ExportDreamsCsvResult,
+  type ExportDreamsPdfResult,
   SaveRealityCheckSettingsUseCase,
   SaveWbtbSettingsUseCase,
   ScheduleRealityChecksUseCase,
@@ -107,6 +108,19 @@ function createExportDreamsCsvUseCase(
   };
 }
 
+function createExportDreamsPdfUseCase(
+  result: ExportDreamsPdfResult = {
+    ok: true,
+    filePath: 'file:///sandbox/lucidream/exports/dreams-2026-02-26-1.pdf',
+    exportedDreamCount: 2,
+    decision: createFeatureGateDecision(true),
+  },
+) {
+  return {
+    execute: jest.fn(async () => result),
+  };
+}
+
 function createNotificationsClientMock(): jest.Mocked<RealityCheckNotificationsClient> {
   return {
     scheduleNotification: jest.fn<
@@ -182,6 +196,7 @@ describe('SettingsScreenView', () => {
     const loadWbtbSettingsUseCase = createWbtbSettingsReader(loadedWbtbSettings);
     const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
     const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
+    const exportDreamsPdfUseCase = createExportDreamsPdfUseCase();
     const onApplyThemeSettings = jest.fn<void, [ThemeSettings]>();
 
     render(
@@ -198,6 +213,7 @@ describe('SettingsScreenView', () => {
         loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
         saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
         exportDreamsCsvUseCase={exportDreamsCsvUseCase}
+        exportDreamsPdfUseCase={exportDreamsPdfUseCase}
         onApplyThemeSettings={onApplyThemeSettings}
       />,
     );
@@ -272,6 +288,7 @@ describe('SettingsScreenView', () => {
     const loadWbtbSettingsUseCase = createWbtbSettingsReader(initialWbtbSettings);
     const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
     const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
+    const exportDreamsPdfUseCase = createExportDreamsPdfUseCase();
 
     render(
       <SettingsScreenView
@@ -287,6 +304,7 @@ describe('SettingsScreenView', () => {
         loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
         saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
         exportDreamsCsvUseCase={exportDreamsCsvUseCase}
+        exportDreamsPdfUseCase={exportDreamsPdfUseCase}
         onApplyThemeSettings={jest.fn()}
       />,
     );
@@ -318,6 +336,7 @@ describe('SettingsScreenView', () => {
       code: 'EXPORT_NOT_AVAILABLE',
       decision: createFeatureGateDecision(false),
     });
+    const exportDreamsPdfUseCase = createExportDreamsPdfUseCase();
 
     render(
       <SettingsScreenView
@@ -333,6 +352,7 @@ describe('SettingsScreenView', () => {
         loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
         saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
         exportDreamsCsvUseCase={exportDreamsCsvUseCase}
+        exportDreamsPdfUseCase={exportDreamsPdfUseCase}
         onApplyThemeSettings={jest.fn()}
       />,
     );
@@ -345,6 +365,97 @@ describe('SettingsScreenView', () => {
       );
     });
     expect(exportDreamsCsvUseCase.execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('invokes PDF export and renders local success path', async () => {
+    const loadThemeSettingsUseCase = createThemeSettingsReader(initialSettings);
+    const saveThemeSettingsUseCase = createThemeSettingsWriter();
+    const loadRealityCheckSettingsUseCase = createRealityCheckSettingsReader(
+      initialRealityCheckSettings,
+    );
+    const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
+    const loadWbtbSettingsUseCase = createWbtbSettingsReader(initialWbtbSettings);
+    const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
+    const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
+    const exportDreamsPdfUseCase = createExportDreamsPdfUseCase({
+      ok: true,
+      filePath: 'file:///sandbox/lucidream/exports/dreams-2026-02-26-1.pdf',
+      exportedDreamCount: 2,
+      decision: createFeatureGateDecision(true),
+    });
+
+    render(
+      <SettingsScreenView
+        activeThemeName="dark"
+        activeThemePalette={THEME_PALETTES.dark}
+        initialSettings={initialSettings}
+        initialRealityCheckSettings={initialRealityCheckSettings}
+        initialWbtbSettings={initialWbtbSettings}
+        loadThemeSettingsUseCase={loadThemeSettingsUseCase}
+        saveThemeSettingsUseCase={saveThemeSettingsUseCase}
+        loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
+        saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
+        saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
+        exportDreamsCsvUseCase={exportDreamsCsvUseCase}
+        exportDreamsPdfUseCase={exportDreamsPdfUseCase}
+        onApplyThemeSettings={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('settings-export-dreams-pdf-button'));
+
+    await waitFor(() => {
+      expect(exportDreamsPdfUseCase.execute).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('settings-success-message')).toHaveTextContent(
+        'PDF exported locally (2 dreams): file:///sandbox/lucidream/exports/dreams-2026-02-26-1.pdf',
+      );
+    });
+  });
+
+  it('shows a clear gate message when FREE blocks PDF export', async () => {
+    const loadThemeSettingsUseCase = createThemeSettingsReader(initialSettings);
+    const saveThemeSettingsUseCase = createThemeSettingsWriter();
+    const loadRealityCheckSettingsUseCase = createRealityCheckSettingsReader(
+      initialRealityCheckSettings,
+    );
+    const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
+    const loadWbtbSettingsUseCase = createWbtbSettingsReader(initialWbtbSettings);
+    const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
+    const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
+    const exportDreamsPdfUseCase = createExportDreamsPdfUseCase({
+      ok: false,
+      code: 'EXPORT_NOT_AVAILABLE',
+      decision: createFeatureGateDecision(false),
+    });
+
+    render(
+      <SettingsScreenView
+        activeThemeName="dark"
+        activeThemePalette={THEME_PALETTES.dark}
+        initialSettings={initialSettings}
+        initialRealityCheckSettings={initialRealityCheckSettings}
+        initialWbtbSettings={initialWbtbSettings}
+        loadThemeSettingsUseCase={loadThemeSettingsUseCase}
+        saveThemeSettingsUseCase={saveThemeSettingsUseCase}
+        loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
+        saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
+        saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
+        exportDreamsCsvUseCase={exportDreamsCsvUseCase}
+        exportDreamsPdfUseCase={exportDreamsPdfUseCase}
+        onApplyThemeSettings={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('settings-export-dreams-pdf-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-error-message')).toHaveTextContent(
+        'PDF export is available on MEDIUM and PRO only. Change your local license to unlock it.',
+      );
+    });
+    expect(exportDreamsPdfUseCase.execute).toHaveBeenCalledTimes(1);
   });
 
   it('schedules notifications when saving reality check settings', async () => {
@@ -378,6 +489,7 @@ describe('SettingsScreenView', () => {
       scheduleRealityChecksUseCase,
     );
     const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
+    const exportDreamsPdfUseCase = createExportDreamsPdfUseCase();
 
     render(
       <SettingsScreenView
@@ -393,6 +505,7 @@ describe('SettingsScreenView', () => {
         loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
         saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
         exportDreamsCsvUseCase={exportDreamsCsvUseCase}
+        exportDreamsPdfUseCase={exportDreamsPdfUseCase}
         onApplyThemeSettings={jest.fn()}
       />,
     );
@@ -451,6 +564,7 @@ describe('SettingsScreenView', () => {
       scheduleWbtbAlarmUseCase,
     );
     const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
+    const exportDreamsPdfUseCase = createExportDreamsPdfUseCase();
 
     render(
       <SettingsScreenView
@@ -466,6 +580,7 @@ describe('SettingsScreenView', () => {
         loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
         saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
         exportDreamsCsvUseCase={exportDreamsCsvUseCase}
+        exportDreamsPdfUseCase={exportDreamsPdfUseCase}
         onApplyThemeSettings={jest.fn()}
       />,
     );

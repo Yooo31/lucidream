@@ -10,6 +10,7 @@ export type {
   ExportDirectoryUri,
   FileContentEncoding,
   FileStorage,
+  PdfFilePath,
   SaveFileInput,
   StorageDirectoryUri,
   StoragePaths,
