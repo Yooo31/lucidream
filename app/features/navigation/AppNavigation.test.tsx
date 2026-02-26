@@ -30,7 +30,25 @@ jest.mock('../journal', () => {
     );
   }
 
-  return { QuickCaptureScreen };
+  function DreamHistoryScreen() {
+    return React.createElement(
+      View,
+      null,
+      React.createElement(Text, null, 'Dream History'),
+      React.createElement(Text, null, 'Local-only timeline of your saved dreams.'),
+    );
+  }
+
+  function DreamDetailScreen() {
+    return React.createElement(
+      View,
+      null,
+      React.createElement(Text, null, 'Dream Detail'),
+      React.createElement(Text, null, 'Stored locally on device.'),
+    );
+  }
+
+  return { QuickCaptureScreen, DreamHistoryScreen, DreamDetailScreen };
 });
 
 jest.mock('@react-navigation/native', () => {
@@ -93,7 +111,9 @@ jest.mock('@react-navigation/native-stack', () => {
 
   function createNativeStackNavigator() {
     function Navigator({ children }: PropsWithChildren) {
-      return React.createElement(React.Fragment, null, children);
+      const stackScreens = React.Children.toArray(children) as ReactElement[];
+      const firstScreen = stackScreens[0] ?? null;
+      return React.createElement(React.Fragment, null, firstScreen);
     }
     function Screen({ component: Component }: { component: ComponentType<Record<string, never>> }) {
       return React.createElement(Component, {});

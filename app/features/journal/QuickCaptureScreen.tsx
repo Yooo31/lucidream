@@ -34,6 +34,7 @@ interface QuickCaptureScreenViewProps {
   createDreamUseCase: DreamCreator;
   listDreamsUseCase: DreamGateReader;
   now: () => number;
+  onOpenHistory?: () => void;
 }
 
 const QUALITY_OPTIONS: ReadonlyArray<{ value: CaptureQuality; label: string }> = [
@@ -70,6 +71,19 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 28,
     fontWeight: '700',
+  },
+  historyButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginTop: 12,
+    minHeight: 40,
+    paddingHorizontal: 12,
+  },
+  historyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   lucidityTrack: {
     borderRadius: 16,
@@ -230,6 +244,7 @@ export function QuickCaptureScreenView({
   createDreamUseCase,
   listDreamsUseCase,
   now,
+  onOpenHistory,
 }: QuickCaptureScreenViewProps) {
   const [title, setTitle] = useState('');
   const [dateValue, setDateValue] = useState<string>(formatLocalDateTime(now()));
@@ -366,6 +381,24 @@ export function QuickCaptureScreenView({
       <Text style={[styles.subtitle, { color: activeThemePalette.textSecondary }]}>
         Fast wake-up capture with local-only save.
       </Text>
+      {onOpenHistory ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onOpenHistory}
+          style={[
+            styles.historyButton,
+            {
+              borderColor: activeThemePalette.textSecondary,
+              backgroundColor: '#0D0D0D',
+            },
+          ]}
+          testID="quick-capture-open-history-button"
+        >
+          <Text style={[styles.historyButtonText, { color: activeThemePalette.textPrimary }]}>
+            Open history
+          </Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.field}>
         <Text style={[styles.fieldLabel, { color: activeThemePalette.textPrimary }]}>Title</Text>
@@ -549,9 +582,19 @@ export function QuickCaptureScreenView({
   );
 }
 
-export function QuickCaptureScreen() {
+interface QuickCaptureScreenProps {
+  onOpenHistory?: () => void;
+}
+
+export function QuickCaptureScreen({ onOpenHistory }: QuickCaptureScreenProps = {}) {
   const { useCases, clock } = useCompositionRoot();
   const { colors } = useTheme();
+  const optionalProps =
+    onOpenHistory === undefined
+      ? {}
+      : ({
+          onOpenHistory,
+        } satisfies Pick<QuickCaptureScreenViewProps, 'onOpenHistory'>);
 
   return (
     <QuickCaptureScreenView
@@ -559,6 +602,7 @@ export function QuickCaptureScreen() {
       createDreamUseCase={useCases.createDreamUseCase}
       listDreamsUseCase={useCases.listDreamsUseCase}
       now={() => clock.now()}
+      {...optionalProps}
     />
   );
 }
