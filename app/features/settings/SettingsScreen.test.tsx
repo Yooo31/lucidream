@@ -4,6 +4,7 @@ import {
   DEFAULT_REALITY_CHECK_SETTINGS,
   DEFAULT_WBTB_SETTINGS,
   FakeClock,
+  OverridableClock,
   type RealityCheckSettings,
   type WbtbSettings,
 } from '../../domain';
@@ -276,6 +277,67 @@ describe('SettingsScreenView', () => {
       autoInfraredEnabled: false,
     });
     expect(screen.getByTestId('settings-success-message')).toBeTruthy();
+  });
+
+  it('shows active theme and applies debug clock overrides when provided', async () => {
+    const loadThemeSettingsUseCase = createThemeSettingsReader(initialSettings);
+    const saveThemeSettingsUseCase = createThemeSettingsWriter();
+    const loadRealityCheckSettingsUseCase = createRealityCheckSettingsReader(
+      initialRealityCheckSettings,
+    );
+    const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
+    const loadWbtbSettingsUseCase = createWbtbSettingsReader(initialWbtbSettings);
+    const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
+    const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
+    const exportDreamsPdfUseCase = createExportDreamsPdfUseCase();
+    const debugClockController = new OverridableClock(() => Date.parse('2026-02-26T10:00:00.000Z'));
+
+    render(
+      <SettingsScreenView
+        activeThemeName="dark"
+        activeThemePalette={THEME_PALETTES.dark}
+        initialSettings={initialSettings}
+        initialRealityCheckSettings={initialRealityCheckSettings}
+        initialWbtbSettings={initialWbtbSettings}
+        loadThemeSettingsUseCase={loadThemeSettingsUseCase}
+        saveThemeSettingsUseCase={saveThemeSettingsUseCase}
+        loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
+        saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
+        saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
+        exportDreamsCsvUseCase={exportDreamsCsvUseCase}
+        exportDreamsPdfUseCase={exportDreamsPdfUseCase}
+        onApplyThemeSettings={jest.fn()}
+        debugClockController={debugClockController}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(loadThemeSettingsUseCase.execute).toHaveBeenCalledTimes(1);
+      expect(loadRealityCheckSettingsUseCase.execute).toHaveBeenCalledTimes(1);
+      expect(loadWbtbSettingsUseCase.execute).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.getByTestId('settings-active-theme-name')).toHaveTextContent(
+      'Active theme: dark',
+    );
+
+    fireEvent.changeText(
+      screen.getByTestId('settings-debug-clock-input'),
+      '2026-02-26T23:30:00.000Z',
+    );
+    fireEvent.press(screen.getByTestId('settings-debug-clock-apply-button'));
+
+    expect(debugClockController.now()).toBe(Date.parse('2026-02-26T23:30:00.000Z'));
+    expect(screen.getByTestId('settings-debug-clock-message')).toHaveTextContent(
+      'Clock override active: 2026-02-26T23:30:00.000Z',
+    );
+
+    fireEvent.press(screen.getByTestId('settings-debug-clock-clear-button'));
+    expect(debugClockController.getNowOverride()).toBeNull();
+    expect(screen.getByTestId('settings-debug-clock-message')).toHaveTextContent(
+      'Clock override cleared. Using device time.',
+    );
   });
 
   it('shows validation error and skips persistence when times are invalid', async () => {

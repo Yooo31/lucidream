@@ -1,0 +1,36 @@
+appId: ${MAESTRO_APP_ID}
+name: Free Quota Block Message
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Quick Capture'
+- tapOn: 'Settings'
+- tapOn:
+    id: 'settings-open-license-button'
+- tapOn:
+    id: 'license-select-free-button'
+- assertVisible: 'Current: FREE'
+- tapOn:
+    id: 'license-back-button'
+- tapOn: 'Journal'
+- tapOn:
+    id: 'quick-capture-story-input'
+- inputText: 'Dream one.'
+- hideKeyboard
+- tapOn:
+    id: 'quick-capture-save-button'
+- assertVisible: 'Dream saved locally.'
+- tapOn:
+    id: 'quick-capture-story-input'
+- inputText: 'Dream two.'
+- hideKeyboard
+- tapOn:
+    id: 'quick-capture-save-button'
+- assertVisible: 'Dream saved locally.'
+- tapOn:
+    id: 'quick-capture-story-input'
+- inputText: 'Dream three should be blocked.'
+- hideKeyboard
+- tapOn:
+    id: 'quick-capture-save-button'
+- assertVisible: 'Dream quota reached (2 per day). Try again tomorrow.'

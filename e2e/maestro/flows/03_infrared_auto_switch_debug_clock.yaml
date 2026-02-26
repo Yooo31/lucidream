@@ -1,0 +1,37 @@
+appId: ${MAESTRO_APP_ID}
+name: Infrared Auto Switch With Debug Clock
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Quick Capture'
+- tapOn: 'Settings'
+- assertVisible: 'Settings'
+- tapOn:
+    id: 'settings-sleep-start-input'
+- eraseText
+- inputText: '23:00'
+- hideKeyboard
+- tapOn:
+    id: 'settings-sleep-end-input'
+- eraseText
+- inputText: '07:00'
+- hideKeyboard
+- tapOn:
+    id: 'settings-save-button'
+- tapOn:
+    id: 'settings-debug-clock-input'
+- inputText: '2026-02-26T12:00:00.000Z'
+- hideKeyboard
+- tapOn:
+    id: 'settings-debug-clock-apply-button'
+- assertVisible: 'Active theme: dark'
+- tapOn:
+    id: 'settings-debug-clock-input'
+- eraseText
+- inputText: '2026-02-26T23:30:00.000Z'
+- hideKeyboard
+- tapOn:
+    id: 'settings-debug-clock-apply-button'
+- assertVisible: 'Active theme: infrared'
+- tapOn:
+    id: 'settings-debug-clock-clear-button'

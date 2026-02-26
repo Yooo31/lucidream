@@ -1,0 +1,13 @@
+appId: ${MAESTRO_APP_ID}
+name: Create Dream Successfully
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Quick Capture'
+- tapOn:
+    id: 'quick-capture-story-input'
+- inputText: 'I became lucid and started flying above the city.'
+- hideKeyboard
+- tapOn:
+    id: 'quick-capture-save-button'
+- assertVisible: 'Dream saved locally.'

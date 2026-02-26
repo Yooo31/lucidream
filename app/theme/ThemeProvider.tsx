@@ -9,7 +9,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 
-import { SystemClock, type Clock } from '../domain';
+import { SystemClock, isClockOverrideController, type Clock } from '../domain';
 
 import { THEME_PALETTES } from './colors';
 import { ThemeEngine } from './ThemeEngine';
@@ -107,6 +107,16 @@ export function ThemeProvider({ children, clock, settingsRepository }: ThemeProv
       clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isClockOverrideController(activeClock)) {
+      return undefined;
+    }
+
+    return activeClock.subscribe(() => {
+      setThemeTick((current) => current + 1);
+    });
+  }, [activeClock]);
 
   const applyThemeSettings = useCallback((themeSettings: ThemeSettings) => {
     assertSleepWindow(themeSettings.sleepWindow);
