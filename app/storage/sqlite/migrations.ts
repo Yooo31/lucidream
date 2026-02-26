@@ -26,6 +26,63 @@ CREATE TABLE IF NOT EXISTS usage_logs (
   type TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+      `,
+    ],
+  },
+  {
+    version: 2,
+    statements: [
+      `
+CREATE TABLE IF NOT EXISTS dreams (
+  id TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL,
+  quality TEXT NOT NULL,
+  title TEXT,
+  content TEXT
+);
+`,
+      `
+CREATE TABLE IF NOT EXISTS tags (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+`,
+      `
+CREATE TABLE IF NOT EXISTS dream_tags (
+  dream_id TEXT NOT NULL,
+  tag_id TEXT NOT NULL,
+  PRIMARY KEY (dream_id, tag_id),
+  FOREIGN KEY (dream_id) REFERENCES dreams(id) ON DELETE CASCADE,
+  FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+);
+`,
+      `
+CREATE TABLE IF NOT EXISTS dream_assets (
+  id TEXT PRIMARY KEY,
+  dream_id TEXT NOT NULL,
+  asset_type TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (dream_id) REFERENCES dreams(id) ON DELETE CASCADE
+);
+`,
+      `
+CREATE INDEX IF NOT EXISTS idx_dreams_created_at ON dreams(created_at);
+`,
+      `
+CREATE INDEX IF NOT EXISTS idx_dream_tags_dream_id ON dream_tags(dream_id);
+`,
+      `
+CREATE INDEX IF NOT EXISTS idx_dream_tags_tag_id ON dream_tags(tag_id);
+`,
+      `
+CREATE INDEX IF NOT EXISTS idx_tags_type_name ON tags(type, name);
+`,
+      `
+CREATE INDEX IF NOT EXISTS idx_dream_assets_dream_id_created_at
+ON dream_assets(dream_id, created_at);
 `,
     ],
   },
