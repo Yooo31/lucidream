@@ -1,0 +1,107 @@
+{
+  "name": "lucidream",
+  "version": "0.1.0",
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "pnpm lint --fix",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "commitlint": "commitlint",
+    "prepare": "husky",
+    "release": "semantic-release"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "release": {
+    "branches": [
+      "main"
+    ],
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/changelog",
+      [
+        "@semantic-release/npm",
+        {
+          "npmPublish": false
+        }
+      ],
+      "@semantic-release/github",
+      [
+        "@semantic-release/git",
+        {
+          "assets": [
+            "CHANGELOG.md",
+            "package.json"
+          ],
+          "message": "chore(release): ${nextRelease.version} [skip ci]\\n\\n${nextRelease.notes}"
+        }
+      ]
+    ]
+  },
+  "dependencies": {
+    "expo": "latest",
+    "expo-status-bar": "latest",
+    "react": "latest",
+    "react-native": "latest"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "latest",
+    "@commitlint/cli": "latest",
+    "@commitlint/config-conventional": "latest",
+    "@semantic-release/changelog": "latest",
+    "@semantic-release/commit-analyzer": "latest",
+    "@semantic-release/git": "latest",
+    "@semantic-release/github": "latest",
+    "@semantic-release/npm": "latest",
+    "@semantic-release/release-notes-generator": "latest",
+    "@testing-library/jest-native": "latest",
+    "@testing-library/react-native": "latest",
+    "@types/jest": "29.5.14",
+    "@types/react": "latest",
+    "@types/react-test-renderer": "latest",
+    "@typescript-eslint/eslint-plugin": "7.18.0",
+    "@typescript-eslint/parser": "7.18.0",
+    "babel-preset-expo": "latest",
+    "eslint": "8.57.1",
+    "eslint-config-airbnb": "latest",
+    "eslint-config-airbnb-typescript": "latest",
+    "eslint-config-prettier": "latest",
+    "eslint-import-resolver-typescript": "latest",
+    "eslint-plugin-import": "latest",
+    "eslint-plugin-jsx-a11y": "latest",
+    "eslint-plugin-prettier": "latest",
+    "eslint-plugin-react": "latest",
+    "eslint-plugin-react-hooks": "4.6.2",
+    "eslint-plugin-react-native": "latest",
+    "husky": "latest",
+    "jest": "29.7.0",
+    "jest-expo": "latest",
+    "lint-staged": "latest",
+    "prettier": "latest",
+    "react-test-renderer": "latest",
+    "semantic-release": "latest",
+    "typescript": "5.5.4"
+  },
+  "engines": {
+    "node": ">=20.11.0 <22",
+    "pnpm": ">=9.15.5 <10"
+  },
+  "packageManager": "pnpm@9.15.5"
+}

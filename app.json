@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "LuciDream",
+    "slug": "lucidream",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#F4F7F5"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F4F7F5"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
