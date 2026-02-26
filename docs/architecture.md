@@ -40,3 +40,20 @@
 - `idx_dream_tags_dream_id` et `idx_dream_tags_tag_id` pour filtrage par tag et jointures.
 - `idx_tags_type_name` pour recherche de tags par type/nom.
 - `idx_dream_assets_dream_id_created_at` pour lecture rapide des assets d'un reve.
+
+## Repository Boundary (Step 9)
+
+- Interfaces applicatives:
+  - `app/services/repositories/DreamRepository.ts`
+  - `app/services/repositories/TagRepository.ts`
+  - `app/services/repositories/UsageLogRepository.ts`
+  - `app/services/repositories/LicenseRepository.ts`
+- Implementations infra SQLite:
+  - `app/storage/sqlite/SqliteDreamRepository.ts`
+  - `app/storage/sqlite/SqliteTagRepository.ts`
+  - `app/storage/sqlite/SqliteUsageLogRepository.ts`
+  - `app/storage/sqlite/SqliteLicenseRepository.ts`
+- Les requetes quotas/history passent par:
+  - comptage de reves par plage temporelle (`DreamRepository.countByCreatedAtRange`)
+  - comptage des logs par type/plage temporelle (`UsageLogRepository.countByTypeAndCreatedAtRange`)
+  - listing historique des reves (`DreamRepository.listByCreatedAtRange`)

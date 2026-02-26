@@ -1,25 +1,40 @@
 import { LATEST_SCHEMA_VERSION, runMigrations } from './migrations';
-import type { SqliteDatabase, SqliteRow } from './types';
+import type { SqliteBindParams, SqliteDatabase, SqliteRow } from './types';
 
 interface MockSqliteDatabase extends SqliteDatabase {
   execAsyncMock: jest.Mock<Promise<unknown>, [string]>;
-  getFirstAsyncMock: jest.Mock<Promise<SqliteRow | null>, [string]>;
+  runAsyncMock: jest.Mock<Promise<unknown>, [string, SqliteBindParams?]>;
+  getFirstAsyncMock: jest.Mock<Promise<SqliteRow | null>, [string, SqliteBindParams?]>;
+  getAllAsyncMock: jest.Mock<Promise<SqliteRow[]>, [string, SqliteBindParams?]>;
 }
 
 function createMockDatabase(currentVersion: number | null): MockSqliteDatabase {
   const execAsyncMock = jest.fn<Promise<unknown>, [string]>().mockResolvedValue(undefined);
+  const runAsyncMock = jest
+    .fn<Promise<unknown>, [string, SqliteBindParams?]>()
+    .mockResolvedValue(undefined);
   const getFirstAsyncMock = jest
-    .fn<Promise<SqliteRow | null>, [string]>()
+    .fn<Promise<SqliteRow | null>, [string, SqliteBindParams?]>()
     .mockResolvedValue(currentVersion === null ? null : { version: currentVersion });
+  const getAllAsyncMock = jest
+    .fn<Promise<SqliteRow[]>, [string, SqliteBindParams?]>()
+    .mockResolvedValue([]);
 
   return {
     execAsync: (source: string) => execAsyncMock(source),
-    getFirstAsync: async <T extends SqliteRow>(source: string) => {
-      const row = await getFirstAsyncMock(source);
+    runAsync: (source: string, params?: SqliteBindParams) => runAsyncMock(source, params),
+    getFirstAsync: async <T extends SqliteRow>(source: string, params?: SqliteBindParams) => {
+      const row = await getFirstAsyncMock(source, params);
       return row as T | null;
     },
+    getAllAsync: async <T extends SqliteRow>(source: string, params?: SqliteBindParams) => {
+      const rows = await getAllAsyncMock(source, params);
+      return rows as T[];
+    },
     execAsyncMock,
+    runAsyncMock,
     getFirstAsyncMock,
+    getAllAsyncMock,
   };
 }
 
@@ -41,6 +56,7 @@ describe('runMigrations', () => {
     expect(appliedVersion).toBe(LATEST_SCHEMA_VERSION);
     expect(database.getFirstAsyncMock).toHaveBeenCalledWith(
       'SELECT version FROM schema_version ORDER BY version DESC LIMIT 1;',
+      undefined,
     );
     expect(statements[0]).toContain('CREATE TABLE IF NOT EXISTS schema_version');
     expect(statements).toEqual(

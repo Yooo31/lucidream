@@ -1,12 +1,26 @@
 import * as SQLite from 'expo-sqlite';
 
 import { runMigrations } from './migrations';
-import type { SqliteDatabase, SqliteModule } from './types';
+import type { SqliteDatabase, SqliteModule, SqliteRow } from './types';
 
 const DEFAULT_DATABASE_NAME = 'lucidream.db';
 
+function toSqliteDatabaseAdapter(database: SQLite.SQLiteDatabase): SqliteDatabase {
+  return {
+    execAsync: (source: string) => database.execAsync(source),
+    runAsync: (source: string, params = []) => database.runAsync(source, params),
+    getFirstAsync: async <T extends SqliteRow>(source: string, params = []) =>
+      database.getFirstAsync<T>(source, params),
+    getAllAsync: async <T extends SqliteRow>(source: string, params = []) =>
+      database.getAllAsync<T>(source, params),
+  };
+}
+
 const defaultSqliteModule: SqliteModule = {
-  openDatabaseAsync: SQLite.openDatabaseAsync,
+  openDatabaseAsync: async (name: string) => {
+    const database = await SQLite.openDatabaseAsync(name);
+    return toSqliteDatabaseAdapter(database);
+  },
 };
 
 interface InitializeDatabaseOptions {
