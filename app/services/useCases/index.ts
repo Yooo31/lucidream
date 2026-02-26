@@ -50,5 +50,12 @@ export {
   type DreamAudioFileStore,
   type DreamAudioRecorder,
 } from './RecordDreamAudioUseCase';
+export {
+  SaveDreamDrawingUseCase,
+  type DreamDrawingExporter,
+  type DreamDrawingFileStore,
+  type SaveDreamDrawingInput,
+  type SaveDreamDrawingResult,
+} from './SaveDreamDrawingUseCase';
 export { GetThemeSettingsUseCase } from './GetThemeSettingsUseCase';
 export { SaveThemeSettingsUseCase } from './SaveThemeSettingsUseCase';

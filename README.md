@@ -43,6 +43,8 @@ e2e/
 - ecran Journal: `Quick Capture` + `Dream History` + `Dream Detail`, avec limite d'historique
   appliquee par `ListDreamsUseCase` selon la licence locale (`FREE` 7j, `MEDIUM` 30j, `PRO`
   illimite)
+- `Dream Detail` inclut un canvas dessin local (`react-native-svg`) avec export PNG sur stockage
+  local et liaison asset SQLite au reve, soumis a la limite `drawingsPerDream` par licence
 - theming local: `ThemeProvider` + `ThemeEngine` basculent automatiquement entre `dark` et
   `infrared` selon la fenetre de sommeil stockee en SQLite
 - ecran Settings: configuration locale `sleep window` + toggle `Auto Infrared mode`, persistes en

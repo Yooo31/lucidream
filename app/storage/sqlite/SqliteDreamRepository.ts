@@ -112,8 +112,8 @@ VALUES (?, ?, ?, ?, ?);
       );
 
       await this.replaceDreamTags(dream.id, dream.tagIds);
-      await this.replaceDreamAsset(dream.id, 'AUDIO', dream.audioPath, dream.createdAt);
-      await this.replaceDreamAsset(dream.id, 'DRAWING', dream.drawingPath, dream.createdAt);
+      await this.replaceDreamAudioAsset(dream.id, dream.audioPath, dream.createdAt);
+      await this.syncDreamDrawingAssets(dream.id, dream.drawingPath, dream.createdAt);
     });
   }
 
@@ -152,8 +152,8 @@ WHERE id = ?;
       );
 
       await this.replaceDreamTags(dream.id, dream.tagIds);
-      await this.replaceDreamAsset(dream.id, 'AUDIO', dream.audioPath, dream.createdAt);
-      await this.replaceDreamAsset(dream.id, 'DRAWING', dream.drawingPath, dream.createdAt);
+      await this.replaceDreamAudioAsset(dream.id, dream.audioPath, dream.createdAt);
+      await this.syncDreamDrawingAssets(dream.id, dream.drawingPath, dream.createdAt);
     });
   }
 
@@ -250,15 +250,14 @@ WHERE dream_id = ? AND asset_type = ?;
     }, Promise.resolve());
   }
 
-  private async replaceDreamAsset(
+  private async replaceDreamAudioAsset(
     dreamId: string,
-    assetType: DreamAssetType,
     filePath: string | undefined,
     createdAt: number,
   ): Promise<void> {
     await this.database.runAsync(
       'DELETE FROM dream_assets WHERE dream_id = ? AND asset_type = ?;',
-      [dreamId, assetType],
+      [dreamId, 'AUDIO'],
     );
 
     if (!filePath) {
@@ -270,8 +269,57 @@ WHERE dream_id = ? AND asset_type = ?;
 INSERT INTO dream_assets (id, dream_id, asset_type, file_path, created_at)
 VALUES (?, ?, ?, ?, ?);
 `,
-      [`${dreamId}:${assetType}`, dreamId, assetType, filePath, createdAt],
+      [`${dreamId}:AUDIO`, dreamId, 'AUDIO', filePath, createdAt],
     );
+  }
+
+  private async syncDreamDrawingAssets(
+    dreamId: string,
+    filePath: string | undefined,
+    baseCreatedAt: number,
+  ): Promise<void> {
+    if (!filePath) {
+      await this.database.runAsync(
+        'DELETE FROM dream_assets WHERE dream_id = ? AND asset_type = ?;',
+        [dreamId, 'DRAWING'],
+      );
+      return;
+    }
+
+    const drawingAssets = await this.listDreamAssetsByType(dreamId, 'DRAWING');
+    const latestDrawingPath = drawingAssets[0]?.file_path;
+
+    if (latestDrawingPath === filePath) {
+      return;
+    }
+
+    const nextDrawingSequence = drawingAssets.length + 1;
+    const createdAt = baseCreatedAt + drawingAssets.length;
+
+    await this.database.runAsync(
+      `
+INSERT INTO dream_assets (id, dream_id, asset_type, file_path, created_at)
+VALUES (?, ?, ?, ?, ?);
+`,
+      [`${dreamId}:DRAWING:${nextDrawingSequence}`, dreamId, 'DRAWING', filePath, createdAt],
+    );
+  }
+
+  private async listDreamAssetsByType(
+    dreamId: string,
+    assetType: DreamAssetType,
+  ): Promise<DreamAssetRow[]> {
+    const rows = await this.database.getAllAsync<DreamAssetRow>(
+      `
+SELECT asset_type, file_path
+FROM dream_assets
+WHERE dream_id = ?
+ORDER BY created_at DESC, id DESC;
+`,
+      [dreamId],
+    );
+
+    return rows.filter((row) => row.asset_type === assetType);
   }
 
   private async hydrateDream(row: DreamRow): Promise<Dream> {

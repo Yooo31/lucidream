@@ -153,6 +153,43 @@ describe('sqlite repositories integration', () => {
     expect(await tagRepository.getById(tagTwo.id)).toBeNull();
   });
 
+  it('keeps drawing asset history and resolves latest drawing path', async () => {
+    const dreamRepository = new SqliteDreamRepository(database);
+    const createdAt = Date.parse('2026-02-26T12:00:00.000Z');
+
+    await dreamRepository.create({
+      id: 'dream-drawing-history',
+      createdAt,
+      quality: 'CLEAR',
+      tagIds: [],
+      content: 'Dream with drawing history',
+      drawingPath: 'file:///sandbox/lucidream/drawings/dream-drawing-history-1.png',
+    });
+
+    await dreamRepository.update({
+      id: 'dream-drawing-history',
+      createdAt,
+      quality: 'CLEAR',
+      tagIds: [],
+      content: 'Dream with drawing history',
+      drawingPath: 'file:///sandbox/lucidream/drawings/dream-drawing-history-2.png',
+    });
+
+    await dreamRepository.update({
+      id: 'dream-drawing-history',
+      createdAt,
+      quality: 'CLEAR',
+      tagIds: [],
+      content: 'Dream with drawing history',
+      drawingPath: 'file:///sandbox/lucidream/drawings/dream-drawing-history-2.png',
+    });
+
+    expect(await dreamRepository.countDrawingsByDreamId('dream-drawing-history')).toBe(2);
+    expect((await dreamRepository.getById('dream-drawing-history'))?.drawingPath).toBe(
+      'file:///sandbox/lucidream/drawings/dream-drawing-history-2.png',
+    );
+  });
+
   it('supports usage log CRUD and quota queries', async () => {
     const usageLogRepository = new SqliteUsageLogRepository(database);
     const startCreatedAt = Date.parse('2026-02-20T00:00:00.000Z');
