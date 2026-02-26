@@ -1,6 +1,16 @@
 export { DREAM_QUALITIES, type Dream, type DreamQuality } from './Dream';
 export { DREAM_ASSET_TYPES, type DreamAsset, type DreamAssetType } from './DreamAsset';
 export {
+  REALITY_CHECK_MODES,
+  DEFAULT_REALITY_CHECK_SETTINGS,
+  assertRealityCheckActiveWindow,
+  assertRealityCheckSettings,
+  isRealityCheckMode,
+  type RealityCheckActiveWindow,
+  type RealityCheckMode,
+  type RealityCheckSettings,
+} from './RealityCheckSettings';
+export {
   LICENSE_GATE_LIMITS,
   resolveFeatureGateDecision,
   type FeatureGateCounts,

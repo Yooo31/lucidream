@@ -47,8 +47,9 @@ e2e/
   local et liaison asset SQLite au reve, soumis a la limite `drawingsPerDream` par licence
 - theming local: `ThemeProvider` + `ThemeEngine` basculent automatiquement entre `dark` et
   `infrared` selon la fenetre de sommeil stockee en SQLite
-- ecran Settings: configuration locale `sleep window` + toggle `Auto Infrared mode`, persistes en
-  SQLite avec preview de theme
+- ecran Settings: configuration locale `sleep window` + toggle `Auto Infrared mode` + Reality
+  Checks (mode random ou every X hours, active hours, notification text), persistes en SQLite avec
+  scheduling local via `expo-notifications`
 - modules faiblement couples et testables
 - exigences qualite: `typecheck`, `lint --max-warnings=0`, tests unitaires
 - shell applicatif: `AppProvider` initialise SQLite/migrations puis expose `CompositionRoot` au UI

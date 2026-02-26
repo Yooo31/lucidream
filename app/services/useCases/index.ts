@@ -68,5 +68,15 @@ export {
   type SaveDreamDrawingInput,
   type SaveDreamDrawingResult,
 } from './SaveDreamDrawingUseCase';
+export { GetRealityCheckSettingsUseCase } from './GetRealityCheckSettingsUseCase';
+export {
+  SaveRealityCheckSettingsUseCase,
+  type SaveRealityCheckSettingsResult,
+} from './SaveRealityCheckSettingsUseCase';
+export {
+  ScheduleRealityChecksUseCase,
+  type RealityCheckNotificationsClient,
+  type ScheduleRealityChecksResult,
+} from './ScheduleRealityChecksUseCase';
 export { GetThemeSettingsUseCase } from './GetThemeSettingsUseCase';
 export { SaveThemeSettingsUseCase } from './SaveThemeSettingsUseCase';

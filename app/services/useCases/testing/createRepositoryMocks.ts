@@ -2,6 +2,7 @@ import type {
   Dream,
   DreamAsset,
   LicenseType,
+  RealityCheckSettings,
   Tag,
   TagType,
   UsageLog,
@@ -11,6 +12,7 @@ import type {
   DreamHistoryQuery,
   DreamRepository,
   LicenseRepository,
+  RealityCheckSettingsRepository,
   TagRepository,
   UsageLogRepository,
 } from '../../repositories';
@@ -69,5 +71,14 @@ export function createLicenseRepositoryMock(
     getCurrent: jest.fn(async () => initialLicenseType),
     update: jest.fn<Promise<void>, [LicenseType]>(async () => undefined),
     delete: jest.fn<Promise<void>, []>(async () => undefined),
+  };
+}
+
+export function createRealityCheckSettingsRepositoryMock(
+  initialSettings: RealityCheckSettings | null = null,
+): jest.Mocked<RealityCheckSettingsRepository> {
+  return {
+    getRealityCheckSettings: jest.fn(async () => initialSettings),
+    saveRealityCheckSettings: jest.fn<Promise<void>, [RealityCheckSettings]>(async () => undefined),
   };
 }

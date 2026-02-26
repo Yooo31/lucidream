@@ -107,6 +107,21 @@ ADD COLUMN auto_infrared_enabled INTEGER NOT NULL DEFAULT 1;
 `,
     ],
   },
+  {
+    version: 5,
+    statements: [
+      `
+CREATE TABLE IF NOT EXISTS reality_check_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  mode TEXT NOT NULL,
+  interval_hours INTEGER,
+  active_start_minutes INTEGER NOT NULL,
+  active_end_minutes INTEGER NOT NULL,
+  notification_text TEXT NOT NULL
+);
+`,
+    ],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;

@@ -71,15 +71,17 @@ describe('runMigrations', () => {
         expect.stringContaining('CREATE TABLE IF NOT EXISTS dream_assets'),
         expect.stringContaining('CREATE TABLE IF NOT EXISTS theme_settings'),
         expect.stringContaining('ALTER TABLE theme_settings'),
+        expect.stringContaining('CREATE TABLE IF NOT EXISTS reality_check_settings'),
         expect.stringContaining('CREATE INDEX IF NOT EXISTS idx_dreams_created_at'),
         expect.stringContaining('INSERT INTO schema_version (version) VALUES (1);'),
         expect.stringContaining('INSERT INTO schema_version (version) VALUES (2);'),
         expect.stringContaining('INSERT INTO schema_version (version) VALUES (3);'),
         expect.stringContaining('INSERT INTO schema_version (version) VALUES (4);'),
+        expect.stringContaining('INSERT INTO schema_version (version) VALUES (5);'),
       ]),
     );
-    expect(beginCount).toBe(4);
-    expect(commitCount).toBe(4);
+    expect(beginCount).toBe(5);
+    expect(commitCount).toBe(5);
   });
 
   it('upgrades schema from v1 to latest', async () => {
@@ -93,23 +95,25 @@ describe('runMigrations', () => {
     ).length;
     const commitCount = statementsList.filter((statement) => statement === 'COMMIT;').length;
 
-    expect(appliedVersion).toBe(4);
+    expect(appliedVersion).toBe(5);
     expect(statements).toContain('CREATE TABLE IF NOT EXISTS dreams');
     expect(statements).toContain('CREATE TABLE IF NOT EXISTS tags');
     expect(statements).toContain('CREATE TABLE IF NOT EXISTS dream_tags');
     expect(statements).toContain('CREATE TABLE IF NOT EXISTS dream_assets');
     expect(statements).toContain('CREATE TABLE IF NOT EXISTS theme_settings');
     expect(statements).toContain('ALTER TABLE theme_settings');
+    expect(statements).toContain('CREATE TABLE IF NOT EXISTS reality_check_settings');
     expect(statements).toContain('CREATE INDEX IF NOT EXISTS idx_dreams_created_at');
     expect(statements).toContain('CREATE INDEX IF NOT EXISTS idx_dream_tags_tag_id');
     expect(statements).toContain('CREATE INDEX IF NOT EXISTS idx_tags_type_name');
     expect(statements).toContain('INSERT INTO schema_version (version) VALUES (2);');
     expect(statements).toContain('INSERT INTO schema_version (version) VALUES (3);');
     expect(statements).toContain('INSERT INTO schema_version (version) VALUES (4);');
+    expect(statements).toContain('INSERT INTO schema_version (version) VALUES (5);');
     expect(statements).not.toContain('CREATE TABLE IF NOT EXISTS license');
     expect(statements).not.toContain('CREATE TABLE IF NOT EXISTS usage_logs');
-    expect(beginCount).toBe(3);
-    expect(commitCount).toBe(3);
+    expect(beginCount).toBe(4);
+    expect(commitCount).toBe(4);
   });
 
   it('skips migrations when schema is already at latest version', async () => {
