@@ -25,6 +25,10 @@ export function createTagRepositoryMock(): jest.Mocked<TagRepository> {
     getById: jest.fn<Promise<Tag | null>, [string]>(async () => null),
     update: jest.fn<Promise<void>, [Tag]>(async () => undefined),
     delete: jest.fn<Promise<void>, [string]>(async () => undefined),
+    findByNormalizedNameAndType: jest.fn<Promise<Tag | null>, [TagType, string]>(async () => null),
+    searchByTypeAndName: jest.fn<Promise<readonly Tag[]>, [TagType, string, number?]>(
+      async () => [],
+    ),
     listAll: jest.fn<Promise<readonly Tag[]>, []>(async () => []),
     listByType: jest.fn<Promise<readonly Tag[]>, [TagType]>(async () => []),
     listByDreamId: jest.fn<Promise<readonly Tag[]>, [string]>(async () => []),

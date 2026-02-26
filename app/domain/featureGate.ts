@@ -8,6 +8,7 @@ interface LicenseGateLimits {
   readonly dreamsPerDay: GateLimit;
   readonly audioPlaysPer7Days: GateLimit;
   readonly audioPlaysPerDay: GateLimit;
+  readonly tagSearchResults: GateLimit;
   readonly drawingsPerDream: number;
   readonly rcPerDay: GateLimit;
   readonly wbtbPer7Days: GateLimit;
@@ -20,6 +21,7 @@ export const LICENSE_GATE_LIMITS: Record<LicenseType, LicenseGateLimits> = {
     dreamsPerDay: 2,
     audioPlaysPer7Days: 1,
     audioPlaysPerDay: null,
+    tagSearchResults: 5,
     drawingsPerDream: 1,
     rcPerDay: 3,
     wbtbPer7Days: 1,
@@ -30,6 +32,7 @@ export const LICENSE_GATE_LIMITS: Record<LicenseType, LicenseGateLimits> = {
     dreamsPerDay: 5,
     audioPlaysPer7Days: 4,
     audioPlaysPerDay: null,
+    tagSearchResults: 15,
     drawingsPerDream: 3,
     rcPerDay: 8,
     wbtbPer7Days: 4,
@@ -40,6 +43,7 @@ export const LICENSE_GATE_LIMITS: Record<LicenseType, LicenseGateLimits> = {
     dreamsPerDay: null,
     audioPlaysPer7Days: null,
     audioPlaysPerDay: 2,
+    tagSearchResults: null,
     drawingsPerDream: 5,
     rcPerDay: null,
     wbtbPer7Days: null,
@@ -69,6 +73,7 @@ export interface FeatureGateDecision {
   maxDreamsPerDay: GateLimit;
   maxAudioPlaysLast7Days: GateLimit;
   maxAudioPlaysPerDay: GateLimit;
+  maxTagSearchResults: GateLimit;
   maxRcPerDay: GateLimit;
   maxWbtbUsesLast7Days: GateLimit;
   maxDrawingsPerDream: number;
@@ -122,6 +127,7 @@ export function resolveFeatureGateDecision(
     maxDreamsPerDay: limits.dreamsPerDay,
     maxAudioPlaysLast7Days: limits.audioPlaysPer7Days,
     maxAudioPlaysPerDay: limits.audioPlaysPerDay,
+    maxTagSearchResults: limits.tagSearchResults,
     maxRcPerDay: limits.rcPerDay,
     maxWbtbUsesLast7Days: limits.wbtbPer7Days,
     maxDrawingsPerDream: limits.drawingsPerDream,

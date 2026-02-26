@@ -19,6 +19,10 @@ function mapTagRow(row: TagRow): Tag {
   };
 }
 
+function normalizeSearchInput(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 export class SqliteTagRepository implements TagRepository {
   constructor(private readonly database: SqliteDatabase) {}
 
@@ -58,6 +62,56 @@ WHERE id = ?;
 
   async delete(id: string): Promise<void> {
     await this.database.runAsync('DELETE FROM tags WHERE id = ?;', [id]);
+  }
+
+  async findByNormalizedNameAndType(type: TagType, normalizedName: string): Promise<Tag | null> {
+    const row = await this.database.getFirstAsync<TagRow>(
+      `
+SELECT id, name, type, created_at
+FROM tags
+WHERE type = ? AND lower(trim(name)) = ?
+ORDER BY created_at DESC, id ASC
+LIMIT 1;
+`,
+      [type, normalizeSearchInput(normalizedName)],
+    );
+
+    return row ? mapTagRow(row) : null;
+  }
+
+  async searchByTypeAndName(type: TagType, query: string, limit?: number): Promise<readonly Tag[]> {
+    const normalizedQuery = normalizeSearchInput(query);
+
+    if (normalizedQuery.length === 0) {
+      return [];
+    }
+
+    if (limit !== undefined) {
+      const rows = await this.database.getAllAsync<TagRow>(
+        `
+SELECT id, name, type, created_at
+FROM tags
+WHERE type = ? AND lower(name) LIKE ?
+ORDER BY name ASC, id ASC
+LIMIT ?;
+`,
+        [type, `%${normalizedQuery}%`, limit],
+      );
+
+      return rows.map(mapTagRow);
+    }
+
+    const rows = await this.database.getAllAsync<TagRow>(
+      `
+SELECT id, name, type, created_at
+FROM tags
+WHERE type = ? AND lower(name) LIKE ?
+ORDER BY name ASC, id ASC;
+`,
+      [type, `%${normalizedQuery}%`],
+    );
+
+    return rows.map(mapTagRow);
   }
 
   async listAll(): Promise<readonly Tag[]> {

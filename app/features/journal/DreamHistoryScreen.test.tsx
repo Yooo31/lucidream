@@ -21,6 +21,7 @@ function createGateDecision(maxHistoryDays: number | null) {
     maxDreamsPerDay: 2,
     maxAudioPlaysLast7Days: 1,
     maxAudioPlaysPerDay: null,
+    maxTagSearchResults: 5,
     maxRcPerDay: 3,
     maxWbtbUsesLast7Days: 1,
     maxDrawingsPerDream: 1,
