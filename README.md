@@ -48,8 +48,9 @@ e2e/
 - theming local: `ThemeProvider` + `ThemeEngine` basculent automatiquement entre `dark` et
   `infrared` selon la fenetre de sommeil stockee en SQLite
 - ecran Settings: configuration locale `sleep window` + toggle `Auto Infrared mode` + Reality
-  Checks (mode random ou every X hours, active hours, notification text), persistes en SQLite avec
-  scheduling local via `expo-notifications`
+  Checks (mode random ou every X hours, active hours, notification text), plus alarme WBTB locale
+  (apres N heures de sommeil, auto-stop en X secondes), persistes en SQLite avec scheduling local
+  via `expo-notifications`
 - modules faiblement couples et testables
 - exigences qualite: `typecheck`, `lint --max-warnings=0`, tests unitaires
 - shell applicatif: `AppProvider` initialise SQLite/migrations puis expose `CompositionRoot` au UI

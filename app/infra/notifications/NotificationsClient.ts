@@ -16,6 +16,7 @@ export type NotificationTriggerInput =
   | { type: 'timeInterval'; seconds: number; repeats?: boolean };
 
 export interface ScheduleNotificationInput {
+  identifier?: string;
   content: NotificationContentInput;
   trigger: NotificationTriggerInput;
 }

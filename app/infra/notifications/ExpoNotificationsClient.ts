@@ -46,10 +46,19 @@ export class ExpoNotificationsClient implements NotificationsClient {
   }
 
   scheduleNotification(input: ScheduleNotificationInput): Promise<string> {
-    return this.notificationsModule.scheduleNotificationAsync({
+    const request = {
       content: input.content,
       trigger: toExpoTrigger(input.trigger),
-    });
+    };
+
+    if (input.identifier !== undefined) {
+      return this.notificationsModule.scheduleNotificationAsync({
+        ...request,
+        identifier: input.identifier,
+      });
+    }
+
+    return this.notificationsModule.scheduleNotificationAsync(request);
   }
 
   cancelNotification(identifier: string): Promise<void> {

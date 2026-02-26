@@ -3,8 +3,10 @@ import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-nati
 
 import {
   DEFAULT_REALITY_CHECK_SETTINGS,
+  DEFAULT_WBTB_SETTINGS,
   type RealityCheckMode,
   type RealityCheckSettings,
+  type WbtbSettings,
 } from '../../domain';
 import { useCompositionRoot } from '../../composition';
 import {
@@ -37,15 +39,34 @@ interface RealityCheckSettingsWriter {
   execute(settings: RealityCheckSettings): Promise<SaveRealityCheckSettingsResult>;
 }
 
+interface WbtbSettingsReader {
+  execute(): Promise<WbtbSettings>;
+}
+
+interface SaveWbtbSettingsResult {
+  scheduled: boolean;
+  skippedByQuota: boolean;
+  maxWbtbUsesLast7Days: number | null;
+  scheduledFor: number | null;
+  autoStopAt: number | null;
+}
+
+interface WbtbSettingsWriter {
+  execute(settings: WbtbSettings): Promise<SaveWbtbSettingsResult>;
+}
+
 export interface SettingsScreenViewProps {
   initialSettings: ThemeSettings;
   initialRealityCheckSettings: RealityCheckSettings;
+  initialWbtbSettings: WbtbSettings;
   activeThemeName: ThemeName;
   activeThemePalette: ThemePalette;
   loadThemeSettingsUseCase: ThemeSettingsReader;
   saveThemeSettingsUseCase: ThemeSettingsWriter;
   loadRealityCheckSettingsUseCase: RealityCheckSettingsReader;
   saveRealityCheckSettingsUseCase: RealityCheckSettingsWriter;
+  loadWbtbSettingsUseCase: WbtbSettingsReader;
+  saveWbtbSettingsUseCase: WbtbSettingsWriter;
   onApplyThemeSettings: (settings: ThemeSettings) => void;
 }
 
@@ -218,6 +239,16 @@ function parseIntervalHours(value: string): number | null {
   return parsed;
 }
 
+function parsePositiveInteger(value: string): number | null {
+  const parsed = Number.parseInt(value.trim(), 10);
+
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
 function getSaveSuccessMessage(result: SaveRealityCheckSettingsResult): string {
   const quotaLabel =
     result.maxRcPerDay === null ? 'unlimited daily quota' : `daily quota ${result.maxRcPerDay}`;
@@ -235,15 +266,38 @@ function getSaveSuccessMessage(result: SaveRealityCheckSettingsResult): string {
   ].join(' ');
 }
 
+function getWbtbSuccessMessage(result: SaveWbtbSettingsResult): string {
+  const quotaLabel =
+    result.maxWbtbUsesLast7Days === null
+      ? 'unlimited weekly quota'
+      : `weekly quota ${result.maxWbtbUsesLast7Days}`;
+
+  if (result.skippedByQuota) {
+    return `WBTB alarm not scheduled (${quotaLabel} reached).`;
+  }
+
+  if (!result.scheduled || result.scheduledFor === null || result.autoStopAt === null) {
+    return 'WBTB alarm disabled.';
+  }
+
+  return `WBTB alarm scheduled (${quotaLabel}; auto-stop after ${Math.max(
+    0,
+    Math.floor((result.autoStopAt - result.scheduledFor) / 1000),
+  )}s).`;
+}
+
 export function SettingsScreenView({
   initialSettings,
   initialRealityCheckSettings,
+  initialWbtbSettings,
   activeThemeName,
   activeThemePalette,
   loadThemeSettingsUseCase,
   saveThemeSettingsUseCase,
   loadRealityCheckSettingsUseCase,
   saveRealityCheckSettingsUseCase,
+  loadWbtbSettingsUseCase,
+  saveWbtbSettingsUseCase,
   onApplyThemeSettings,
 }: SettingsScreenViewProps) {
   const [sleepStart, setSleepStart] = useState<string>(
@@ -267,6 +321,13 @@ export function SettingsScreenView({
   );
   const [rcNotificationText, setRcNotificationText] = useState<string>(
     initialRealityCheckSettings.notificationText,
+  );
+  const [wbtbEnabled, setWbtbEnabled] = useState<boolean>(initialWbtbSettings.enabled);
+  const [wbtbAfterSleepHours, setWbtbAfterSleepHours] = useState<string>(
+    initialWbtbSettings.afterSleepHours.toString(),
+  );
+  const [wbtbAlarmDurationSeconds, setWbtbAlarmDurationSeconds] = useState<string>(
+    initialWbtbSettings.alarmDurationSeconds.toString(),
   );
   const [previewThemeName, setPreviewThemeName] = useState<ThemeName>(activeThemeName);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -292,14 +353,28 @@ export function SettingsScreenView({
   }, [initialRealityCheckSettings]);
 
   useEffect(() => {
+    setWbtbEnabled(initialWbtbSettings.enabled);
+    setWbtbAfterSleepHours(initialWbtbSettings.afterSleepHours.toString());
+    setWbtbAlarmDurationSeconds(initialWbtbSettings.alarmDurationSeconds.toString());
+  }, [
+    initialWbtbSettings.afterSleepHours,
+    initialWbtbSettings.alarmDurationSeconds,
+    initialWbtbSettings.enabled,
+  ]);
+
+  useEffect(() => {
     setPreviewThemeName(activeThemeName);
   }, [activeThemeName]);
 
   useEffect(() => {
     let isMounted = true;
 
-    Promise.all([loadThemeSettingsUseCase.execute(), loadRealityCheckSettingsUseCase.execute()])
-      .then(([storedThemeSettings, storedRealityCheckSettings]) => {
+    Promise.all([
+      loadThemeSettingsUseCase.execute(),
+      loadRealityCheckSettingsUseCase.execute(),
+      loadWbtbSettingsUseCase.execute(),
+    ])
+      .then(([storedThemeSettings, storedRealityCheckSettings, storedWbtbSettings]) => {
         if (!isMounted) {
           return;
         }
@@ -314,6 +389,10 @@ export function SettingsScreenView({
         setRcActiveStart(formatMinuteOfDay(storedRealityCheckSettings.activeWindow.startMinutes));
         setRcActiveEnd(formatMinuteOfDay(storedRealityCheckSettings.activeWindow.endMinutes));
         setRcNotificationText(storedRealityCheckSettings.notificationText);
+
+        setWbtbEnabled(storedWbtbSettings.enabled);
+        setWbtbAfterSleepHours(storedWbtbSettings.afterSleepHours.toString());
+        setWbtbAlarmDurationSeconds(storedWbtbSettings.alarmDurationSeconds.toString());
       })
       .catch(() => {
         if (!isMounted) {
@@ -326,7 +405,12 @@ export function SettingsScreenView({
     return () => {
       isMounted = false;
     };
-  }, [loadRealityCheckSettingsUseCase, loadThemeSettingsUseCase, onApplyThemeSettings]);
+  }, [
+    loadRealityCheckSettingsUseCase,
+    loadThemeSettingsUseCase,
+    loadWbtbSettingsUseCase,
+    onApplyThemeSettings,
+  ]);
 
   const previewPalette = useMemo(() => THEME_PALETTES[previewThemeName], [previewThemeName]);
 
@@ -394,16 +478,40 @@ export function SettingsScreenView({
       };
     }
 
+    const afterSleepHours = parsePositiveInteger(wbtbAfterSleepHours);
+    const alarmDurationSeconds = parsePositiveInteger(wbtbAlarmDurationSeconds);
+
+    if (afterSleepHours === null) {
+      setErrorMessage('WBTB delay must be a positive integer (hours).');
+      return;
+    }
+
+    if (alarmDurationSeconds === null) {
+      setErrorMessage('WBTB auto-stop must be a positive integer (seconds).');
+      return;
+    }
+
+    const nextWbtbSettings: WbtbSettings = {
+      enabled: wbtbEnabled,
+      afterSleepHours,
+      alarmDurationSeconds,
+    };
+
     setIsSaving(true);
 
     try {
       await saveThemeSettingsUseCase.execute(nextThemeSettings);
       onApplyThemeSettings(nextThemeSettings);
 
-      const scheduleResult =
+      const scheduleRealityChecksResult =
         await saveRealityCheckSettingsUseCase.execute(nextRealityCheckSettings);
+      const scheduleWbtbResult = await saveWbtbSettingsUseCase.execute(nextWbtbSettings);
+      const saveSuccessMessage = [
+        getSaveSuccessMessage(scheduleRealityChecksResult),
+        getWbtbSuccessMessage(scheduleWbtbResult),
+      ].join(' ');
 
-      setSuccessMessage(getSaveSuccessMessage(scheduleResult));
+      setSuccessMessage(saveSuccessMessage);
     } catch {
       setErrorMessage('Unable to save settings locally.');
     } finally {
@@ -496,6 +604,86 @@ export function SettingsScreenView({
             onValueChange={setAutoInfraredEnabled}
             testID="settings-auto-infrared-switch"
             value={autoInfraredEnabled}
+          />
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.section,
+          {
+            backgroundColor: '#101010',
+            borderColor: activeThemePalette.textSecondary,
+            borderWidth: 1,
+          },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: activeThemePalette.textPrimary }]}>
+          WBTB Alarm
+        </Text>
+        <Text style={[styles.sectionDescription, { color: activeThemePalette.textSecondary }]}>
+          Schedule a local wake-back-to-bed alarm after N sleep hours with automatic stop.
+        </Text>
+
+        <View style={styles.rowBetween}>
+          <Text
+            style={[styles.fieldLabel, { color: activeThemePalette.textPrimary, marginBottom: 0 }]}
+          >
+            Enable WBTB alarm
+          </Text>
+          <Switch
+            accessibilityLabel="Enable WBTB alarm"
+            onValueChange={setWbtbEnabled}
+            testID="settings-wbtb-enabled-switch"
+            value={wbtbEnabled}
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { color: activeThemePalette.textPrimary }]}>
+            After sleep (hours)
+          </Text>
+          <TextInput
+            accessibilityLabel="WBTB after sleep hours"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="number-pad"
+            onChangeText={setWbtbAfterSleepHours}
+            placeholder="6"
+            placeholderTextColor={activeThemePalette.textSecondary}
+            style={[
+              styles.input,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                color: activeThemePalette.textPrimary,
+              },
+            ]}
+            testID="settings-wbtb-after-hours-input"
+            value={wbtbAfterSleepHours}
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { color: activeThemePalette.textPrimary }]}>
+            Auto-stop (seconds)
+          </Text>
+          <TextInput
+            accessibilityLabel="WBTB auto-stop seconds"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="number-pad"
+            onChangeText={setWbtbAlarmDurationSeconds}
+            placeholder="45"
+            placeholderTextColor={activeThemePalette.textSecondary}
+            style={[
+              styles.input,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                color: activeThemePalette.textPrimary,
+              },
+            ]}
+            testID="settings-wbtb-auto-stop-seconds-input"
+            value={wbtbAlarmDurationSeconds}
           />
         </View>
       </View>
@@ -770,10 +958,13 @@ export function SettingsScreen() {
         autoInfraredEnabled,
       }}
       initialRealityCheckSettings={DEFAULT_REALITY_CHECK_SETTINGS}
+      initialWbtbSettings={DEFAULT_WBTB_SETTINGS}
       loadThemeSettingsUseCase={useCases.getThemeSettingsUseCase}
       saveThemeSettingsUseCase={useCases.saveThemeSettingsUseCase}
       loadRealityCheckSettingsUseCase={useCases.getRealityCheckSettingsUseCase}
       saveRealityCheckSettingsUseCase={useCases.saveRealityCheckSettingsUseCase}
+      loadWbtbSettingsUseCase={useCases.getWbtbSettingsUseCase}
+      saveWbtbSettingsUseCase={useCases.saveWbtbSettingsUseCase}
       onApplyThemeSettings={applyThemeSettings}
     />
   );

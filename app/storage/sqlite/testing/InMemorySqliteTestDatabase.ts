@@ -55,6 +55,14 @@ interface ThemeSettingsRecord {
   rowid: number;
 }
 
+interface WbtbSettingsRecord {
+  id: number;
+  enabled: number;
+  after_sleep_hours: number;
+  alarm_duration_seconds: number;
+  rowid: number;
+}
+
 interface DatabaseState {
   dreams: Map<string, DreamRecord>;
   tags: Map<string, TagRecord>;
@@ -63,6 +71,7 @@ interface DatabaseState {
   usageLogs: Map<string, UsageLogRecord>;
   licenses: LicenseRecord[];
   themeSettings: ThemeSettingsRecord | null;
+  wbtbSettings: WbtbSettingsRecord | null;
   rowIdCounter: number;
 }
 
@@ -143,6 +152,7 @@ function cloneState(state: DatabaseState): DatabaseState {
     ),
     licenses: state.licenses.map((row) => ({ ...row })),
     themeSettings: state.themeSettings ? { ...state.themeSettings } : null,
+    wbtbSettings: state.wbtbSettings ? { ...state.wbtbSettings } : null,
     rowIdCounter: state.rowIdCounter,
   };
 }
@@ -156,6 +166,7 @@ function createInitialState(): DatabaseState {
     usageLogs: new Map(),
     licenses: [],
     themeSettings: null,
+    wbtbSettings: null,
     rowIdCounter: 1,
   };
 }
@@ -406,6 +417,26 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
       return undefined;
     }
 
+    if (sql === 'DELETE FROM WBTB_SETTINGS') {
+      this.state.wbtbSettings = null;
+      return undefined;
+    }
+
+    if (
+      sql ===
+      'INSERT INTO WBTB_SETTINGS (ID, ENABLED, AFTER_SLEEP_HOURS, ALARM_DURATION_SECONDS) VALUES (1, ?, ?, ?)'
+    ) {
+      const [enabled, afterSleepHours, alarmDurationSeconds] = params as [number, number, number];
+      this.state.wbtbSettings = {
+        id: 1,
+        enabled,
+        after_sleep_hours: afterSleepHours,
+        alarm_duration_seconds: alarmDurationSeconds,
+        rowid: this.nextRowId(),
+      };
+      return undefined;
+    }
+
     throw new Error(`Unsupported runAsync query in test database: ${source}`);
   }
 
@@ -535,6 +566,21 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
         sleep_start_minutes: this.state.themeSettings.sleep_start_minutes,
         sleep_end_minutes: this.state.themeSettings.sleep_end_minutes,
         auto_infrared_enabled: this.state.themeSettings.auto_infrared_enabled,
+      });
+    }
+
+    if (
+      sql ===
+      'SELECT ENABLED, AFTER_SLEEP_HOURS, ALARM_DURATION_SECONDS FROM WBTB_SETTINGS WHERE ID = 1'
+    ) {
+      if (!this.state.wbtbSettings) {
+        return null;
+      }
+
+      return castRow<T>({
+        enabled: this.state.wbtbSettings.enabled,
+        after_sleep_hours: this.state.wbtbSettings.after_sleep_hours,
+        alarm_duration_seconds: this.state.wbtbSettings.alarm_duration_seconds,
       });
     }
 

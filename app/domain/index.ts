@@ -1,5 +1,6 @@
 export { DREAM_QUALITIES, type Dream, type DreamQuality } from './Dream';
 export { DREAM_ASSET_TYPES, type DreamAsset, type DreamAssetType } from './DreamAsset';
+export { DEFAULT_WBTB_SETTINGS, assertWbtbSettings, type WbtbSettings } from './WbtbSettings';
 export {
   REALITY_CHECK_MODES,
   DEFAULT_REALITY_CHECK_SETTINGS,

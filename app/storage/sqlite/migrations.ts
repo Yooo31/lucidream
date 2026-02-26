@@ -122,6 +122,19 @@ CREATE TABLE IF NOT EXISTS reality_check_settings (
 `,
     ],
   },
+  {
+    version: 6,
+    statements: [
+      `
+CREATE TABLE IF NOT EXISTS wbtb_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  enabled INTEGER NOT NULL,
+  after_sleep_hours INTEGER NOT NULL,
+  alarm_duration_seconds INTEGER NOT NULL
+);
+`,
+    ],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;

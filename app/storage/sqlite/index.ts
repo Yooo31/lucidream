@@ -6,6 +6,7 @@ export { SqliteRealityCheckSettingsRepository } from './SqliteRealityCheckSettin
 export { SqliteTagRepository } from './SqliteTagRepository';
 export { SqliteThemeSettingsRepository } from './SqliteThemeSettingsRepository';
 export { SqliteUsageLogRepository } from './SqliteUsageLogRepository';
+export { SqliteWbtbSettingsRepository } from './SqliteWbtbSettingsRepository';
 export type {
   SqliteBindParams,
   SqliteBindValue,

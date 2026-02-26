@@ -7,6 +7,7 @@ import type {
   TagType,
   UsageLog,
   UsageLogType,
+  WbtbSettings,
 } from '../../../domain';
 import type {
   DreamHistoryQuery,
@@ -15,6 +16,7 @@ import type {
   RealityCheckSettingsRepository,
   TagRepository,
   UsageLogRepository,
+  WbtbSettingsRepository,
 } from '../../repositories';
 
 export function createDreamRepositoryMock(): jest.Mocked<DreamRepository> {
@@ -80,5 +82,14 @@ export function createRealityCheckSettingsRepositoryMock(
   return {
     getRealityCheckSettings: jest.fn(async () => initialSettings),
     saveRealityCheckSettings: jest.fn<Promise<void>, [RealityCheckSettings]>(async () => undefined),
+  };
+}
+
+export function createWbtbSettingsRepositoryMock(
+  initialSettings: WbtbSettings | null = null,
+): jest.Mocked<WbtbSettingsRepository> {
+  return {
+    getWbtbSettings: jest.fn(async () => initialSettings),
+    saveWbtbSettings: jest.fn<Promise<void>, [WbtbSettings]>(async () => undefined),
   };
 }

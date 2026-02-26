@@ -8,6 +8,7 @@ import {
   CreateTagUseCase,
   CreateDreamUseCase,
   GetRealityCheckSettingsUseCase,
+  GetWbtbSettingsUseCase,
   GetThemeSettingsUseCase,
   ListDreamAssetsUseCase,
   ListDreamTagsUseCase,
@@ -17,14 +18,17 @@ import {
   RecordDreamAudioUseCase,
   SaveDreamDrawingUseCase,
   SaveRealityCheckSettingsUseCase,
+  SaveWbtbSettingsUseCase,
   SaveThemeSettingsUseCase,
   ScheduleRealityChecksUseCase,
+  ScheduleWbtbAlarmUseCase,
   SearchTagsUseCase,
   type DreamRepository,
   type LicenseRepository,
   type RealityCheckSettingsRepository,
   type TagRepository,
   type UsageLogRepository,
+  type WbtbSettingsRepository,
 } from '../services';
 import { ExpoFileStorage, type StoredFilePath } from '../storage/files';
 import {
@@ -35,6 +39,7 @@ import {
   SqliteTagRepository,
   SqliteThemeSettingsRepository,
   SqliteUsageLogRepository,
+  SqliteWbtbSettingsRepository,
   type SqliteDatabase,
 } from '../storage/sqlite';
 
@@ -45,6 +50,7 @@ export interface AppRepositories {
   licenseRepository: LicenseRepository;
   themeSettingsRepository: ThemeSettingsRepository;
   realityCheckSettingsRepository: RealityCheckSettingsRepository;
+  wbtbSettingsRepository: WbtbSettingsRepository;
 }
 
 export interface AppUseCases {
@@ -62,6 +68,8 @@ export interface AppUseCases {
   saveDreamDrawingUseCase: SaveDreamDrawingUseCase;
   getRealityCheckSettingsUseCase: GetRealityCheckSettingsUseCase;
   saveRealityCheckSettingsUseCase: SaveRealityCheckSettingsUseCase;
+  getWbtbSettingsUseCase: GetWbtbSettingsUseCase;
+  saveWbtbSettingsUseCase: SaveWbtbSettingsUseCase;
   getThemeSettingsUseCase: GetThemeSettingsUseCase;
   saveThemeSettingsUseCase: SaveThemeSettingsUseCase;
 }
@@ -101,9 +109,16 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
     licenseRepository: new SqliteLicenseRepository(database),
     themeSettingsRepository: new SqliteThemeSettingsRepository(database),
     realityCheckSettingsRepository: new SqliteRealityCheckSettingsRepository(database),
+    wbtbSettingsRepository: new SqliteWbtbSettingsRepository(database),
   };
 
   const scheduleRealityChecksUseCase = new ScheduleRealityChecksUseCase(
+    notificationsClient,
+    repositories.usageLogRepository,
+    repositories.licenseRepository,
+    clock,
+  );
+  const scheduleWbtbAlarmUseCase = new ScheduleWbtbAlarmUseCase(
     notificationsClient,
     repositories.usageLogRepository,
     repositories.licenseRepository,
@@ -179,6 +194,11 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
     saveRealityCheckSettingsUseCase: new SaveRealityCheckSettingsUseCase(
       repositories.realityCheckSettingsRepository,
       scheduleRealityChecksUseCase,
+    ),
+    getWbtbSettingsUseCase: new GetWbtbSettingsUseCase(repositories.wbtbSettingsRepository),
+    saveWbtbSettingsUseCase: new SaveWbtbSettingsUseCase(
+      repositories.wbtbSettingsRepository,
+      scheduleWbtbAlarmUseCase,
     ),
     getThemeSettingsUseCase: new GetThemeSettingsUseCase(repositories.themeSettingsRepository),
     saveThemeSettingsUseCase: new SaveThemeSettingsUseCase(repositories.themeSettingsRepository),

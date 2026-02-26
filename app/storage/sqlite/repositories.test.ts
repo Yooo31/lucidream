@@ -1,10 +1,11 @@
-import type { Dream, Tag, UsageLog } from '../../domain';
+import type { Dream, Tag, UsageLog, WbtbSettings } from '../../domain';
 
 import { SqliteDreamRepository } from './SqliteDreamRepository';
 import { SqliteLicenseRepository } from './SqliteLicenseRepository';
 import { SqliteTagRepository } from './SqliteTagRepository';
 import { SqliteThemeSettingsRepository } from './SqliteThemeSettingsRepository';
 import { SqliteUsageLogRepository } from './SqliteUsageLogRepository';
+import { SqliteWbtbSettingsRepository } from './SqliteWbtbSettingsRepository';
 import { InMemorySqliteTestDatabase } from './testing/InMemorySqliteTestDatabase';
 
 function createTestDatabase(): InMemorySqliteTestDatabase {
@@ -347,5 +348,27 @@ describe('sqlite repositories integration', () => {
 
     await settingsRepository.saveThemeSettings(secondThemeSettings);
     expect(await settingsRepository.getThemeSettings()).toEqual(secondThemeSettings);
+  });
+
+  it('supports WBTB settings persistence', async () => {
+    const settingsRepository = new SqliteWbtbSettingsRepository(database);
+    const firstSettings: WbtbSettings = {
+      enabled: true,
+      afterSleepHours: 5,
+      alarmDurationSeconds: 30,
+    };
+    const secondSettings: WbtbSettings = {
+      enabled: false,
+      afterSleepHours: 6,
+      alarmDurationSeconds: 45,
+    };
+
+    expect(await settingsRepository.getWbtbSettings()).toBeNull();
+
+    await settingsRepository.saveWbtbSettings(firstSettings);
+    expect(await settingsRepository.getWbtbSettings()).toEqual(firstSettings);
+
+    await settingsRepository.saveWbtbSettings(secondSettings);
+    expect(await settingsRepository.getWbtbSettings()).toEqual(secondSettings);
   });
 });

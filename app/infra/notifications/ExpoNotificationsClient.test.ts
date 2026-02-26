@@ -117,6 +117,28 @@ describe('ExpoNotificationsClient', () => {
     });
   });
 
+  it('forwards an explicit notification identifier when provided', async () => {
+    const notificationsModule = createMockNotificationsModule();
+    const client = new ExpoNotificationsClient({ notificationsModule });
+
+    await client.scheduleNotification({
+      ...createScheduleInput({ type: 'immediate' }),
+      identifier: 'wbtb-alarm-start',
+    });
+
+    expect(notificationsModule.scheduleNotificationAsyncMock).toHaveBeenCalledWith({
+      identifier: 'wbtb-alarm-start',
+      content: {
+        title: 'Reality Check',
+        body: 'Pause and verify if you are dreaming.',
+        data: {
+          source: 'test',
+        },
+      },
+      trigger: null,
+    });
+  });
+
   it('schedules a time-interval notification', async () => {
     const notificationsModule = createMockNotificationsModule();
     const client = new ExpoNotificationsClient({ notificationsModule });
