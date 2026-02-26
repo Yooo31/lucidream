@@ -57,3 +57,20 @@
   - comptage de reves par plage temporelle (`DreamRepository.countByCreatedAtRange`)
   - comptage des logs par type/plage temporelle (`UsageLogRepository.countByTypeAndCreatedAtRange`)
   - listing historique des reves (`DreamRepository.listByCreatedAtRange`)
+
+## App Use-Cases (Step 10)
+
+- Use-cases app exposes:
+  - `CreateDreamUseCase`
+  - `ListDreamsUseCase`
+  - `AddTagToDreamUseCase`
+  - `RecordUsageLogUseCase`
+- Quota and entitlement checks are resolved in app layer through
+  `app/services/useCases/featureGateResolver.ts`.
+- The resolver composes local repositories only and aggregates counts from:
+  - `DreamRepository.countByCreatedAtRange` (journal reality)
+  - `UsageLogRepository.countByTypeAndCreatedAtRange` (event counters)
+- `CreateDreamUseCase` writes both the dream entry and a `DREAM_CREATED` usage log to keep
+  quota counters coherent.
+- `ListDreamsUseCase` clamps the query start date to `maxHistoryDays` when the feature gate
+  returns a bounded history window.
