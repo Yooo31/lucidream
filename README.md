@@ -23,6 +23,7 @@ app/
   features/
     bootstrap/
     navigation/
+    settings/
     shell/
   infra/
   components/
@@ -41,6 +42,8 @@ e2e/
 - `offline-first`: logique locale prioritaire dans `app/storage` et `app/services`
 - theming local: `ThemeProvider` + `ThemeEngine` basculent automatiquement entre `dark` et
   `infrared` selon la fenetre de sommeil stockee en SQLite
+- ecran Settings: configuration locale `sleep window` + toggle `Auto Infrared mode`, persistes en
+  SQLite avec preview de theme
 - modules faiblement couples et testables
 - exigences qualite: `typecheck`, `lint --max-warnings=0`, tests unitaires
 - shell applicatif: `AppProvider` initialise SQLite/migrations puis expose `CompositionRoot` au UI

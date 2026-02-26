@@ -1,6 +1,6 @@
-import type { SleepWindow } from './types';
+import type { ThemeSettings } from './types';
 
 export interface ThemeSettingsRepository {
-  getSleepWindow(): Promise<SleepWindow | null>;
-  saveSleepWindow(sleepWindow: SleepWindow): Promise<void>;
+  getThemeSettings(): Promise<ThemeSettings | null>;
+  saveThemeSettings(themeSettings: ThemeSettings): Promise<void>;
 }

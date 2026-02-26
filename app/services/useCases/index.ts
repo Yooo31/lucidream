@@ -20,3 +20,5 @@ export {
   type RecordUsageLogResult,
   type UsageLogIdGenerator,
 } from './RecordUsageLogUseCase';
+export { GetThemeSettingsUseCase } from './GetThemeSettingsUseCase';
+export { SaveThemeSettingsUseCase } from './SaveThemeSettingsUseCase';

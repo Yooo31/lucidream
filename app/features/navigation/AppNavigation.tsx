@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, type NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { SettingsScreen } from '../settings';
 import { PlaceholderScreen } from './PlaceholderScreen';
 
 type JournalStackParamList = {
@@ -65,15 +66,6 @@ function PediaHomeScreen() {
   );
 }
 
-function SettingsHomeScreen() {
-  return (
-    <PlaceholderScreen
-      title="Settings placeholder"
-      description="App settings will be added here."
-    />
-  );
-}
-
 function JournalStackNavigator() {
   return (
     <JournalStack.Navigator screenOptions={stackScreenOptions}>
@@ -101,7 +93,7 @@ function PediaStackNavigator() {
 function SettingsStackNavigator() {
   return (
     <SettingsStack.Navigator screenOptions={stackScreenOptions}>
-      <SettingsStack.Screen name="SettingsHome" component={SettingsHomeScreen} />
+      <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} />
     </SettingsStack.Navigator>
   );
 }

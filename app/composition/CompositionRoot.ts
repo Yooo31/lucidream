@@ -3,8 +3,10 @@ import type { ThemeSettingsRepository } from '../theme/ThemeSettingsRepository';
 import {
   AddTagToDreamUseCase,
   CreateDreamUseCase,
+  GetThemeSettingsUseCase,
   ListDreamsUseCase,
   RecordUsageLogUseCase,
+  SaveThemeSettingsUseCase,
   type DreamRepository,
   type LicenseRepository,
   type TagRepository,
@@ -33,6 +35,8 @@ export interface AppUseCases {
   listDreamsUseCase: ListDreamsUseCase;
   addTagToDreamUseCase: AddTagToDreamUseCase;
   recordUsageLogUseCase: RecordUsageLogUseCase;
+  getThemeSettingsUseCase: GetThemeSettingsUseCase;
+  saveThemeSettingsUseCase: SaveThemeSettingsUseCase;
 }
 
 export interface CompositionRoot {
@@ -85,6 +89,8 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
       repositories.tagRepository,
     ),
     recordUsageLogUseCase: new RecordUsageLogUseCase(repositories.usageLogRepository, clock),
+    getThemeSettingsUseCase: new GetThemeSettingsUseCase(repositories.themeSettingsRepository),
+    saveThemeSettingsUseCase: new SaveThemeSettingsUseCase(repositories.themeSettingsRepository),
   };
 
   return {

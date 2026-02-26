@@ -1,11 +1,12 @@
 import type { SqliteDatabase, SqliteRow } from './types';
 
 import type { ThemeSettingsRepository } from '../../theme/ThemeSettingsRepository';
-import { assertSleepWindow, type SleepWindow } from '../../theme/types';
+import { assertSleepWindow, type ThemeSettings } from '../../theme/types';
 
 interface ThemeSettingsRow extends SqliteRow {
   sleep_start_minutes: number | string;
   sleep_end_minutes: number | string;
+  auto_infrared_enabled: number | string;
 }
 
 function parseMinuteValue(value: number | string): number | null {
@@ -17,13 +18,37 @@ function parseMinuteValue(value: number | string): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+function parseBooleanValue(value: number | string): boolean | null {
+  if (typeof value === 'number') {
+    if (value === 1) {
+      return true;
+    }
+
+    if (value === 0) {
+      return false;
+    }
+
+    return null;
+  }
+
+  if (value === '1') {
+    return true;
+  }
+
+  if (value === '0') {
+    return false;
+  }
+
+  return null;
+}
+
 export class SqliteThemeSettingsRepository implements ThemeSettingsRepository {
   constructor(private readonly database: SqliteDatabase) {}
 
-  async getSleepWindow(): Promise<SleepWindow | null> {
+  async getThemeSettings(): Promise<ThemeSettings | null> {
     const row = await this.database.getFirstAsync<ThemeSettingsRow>(
       `
-SELECT sleep_start_minutes, sleep_end_minutes
+SELECT sleep_start_minutes, sleep_end_minutes, auto_infrared_enabled
 FROM theme_settings
 WHERE id = 1;
 `,
@@ -35,23 +60,30 @@ WHERE id = 1;
 
     const startMinutes = parseMinuteValue(row.sleep_start_minutes);
     const endMinutes = parseMinuteValue(row.sleep_end_minutes);
+    const autoInfraredEnabled = parseBooleanValue(row.auto_infrared_enabled);
 
-    if (startMinutes === null || endMinutes === null) {
+    if (startMinutes === null || endMinutes === null || autoInfraredEnabled === null) {
       return null;
     }
 
-    const sleepWindow: SleepWindow = { startMinutes, endMinutes };
+    const themeSettings: ThemeSettings = {
+      sleepWindow: {
+        startMinutes,
+        endMinutes,
+      },
+      autoInfraredEnabled,
+    };
 
     try {
-      assertSleepWindow(sleepWindow);
-      return sleepWindow;
+      assertSleepWindow(themeSettings.sleepWindow);
+      return themeSettings;
     } catch {
       return null;
     }
   }
 
-  async saveSleepWindow(sleepWindow: SleepWindow): Promise<void> {
-    assertSleepWindow(sleepWindow);
+  async saveThemeSettings(themeSettings: ThemeSettings): Promise<void> {
+    assertSleepWindow(themeSettings.sleepWindow);
 
     await this.database.execAsync('BEGIN IMMEDIATE TRANSACTION;');
 
@@ -59,10 +91,14 @@ WHERE id = 1;
       await this.database.runAsync('DELETE FROM theme_settings;');
       await this.database.runAsync(
         `
-INSERT INTO theme_settings (id, sleep_start_minutes, sleep_end_minutes)
-VALUES (1, ?, ?);
+INSERT INTO theme_settings (id, sleep_start_minutes, sleep_end_minutes, auto_infrared_enabled)
+VALUES (1, ?, ?, ?);
 `,
-        [sleepWindow.startMinutes, sleepWindow.endMinutes],
+        [
+          themeSettings.sleepWindow.startMinutes,
+          themeSettings.sleepWindow.endMinutes,
+          themeSettings.autoInfraredEnabled ? 1 : 0,
+        ],
       );
       await this.database.execAsync('COMMIT;');
     } catch (error) {

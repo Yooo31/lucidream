@@ -220,23 +220,29 @@ describe('sqlite repositories integration', () => {
     expect(await licenseRepository.getCurrent()).toBeNull();
   });
 
-  it('supports theme sleep window settings persistence', async () => {
+  it('supports theme settings persistence for sleep window and auto infrared mode', async () => {
     const settingsRepository = new SqliteThemeSettingsRepository(database);
-    const firstSleepWindow = {
-      startMinutes: 23 * 60,
-      endMinutes: 7 * 60,
+    const firstThemeSettings = {
+      sleepWindow: {
+        startMinutes: 23 * 60,
+        endMinutes: 7 * 60,
+      },
+      autoInfraredEnabled: true,
     };
-    const secondSleepWindow = {
-      startMinutes: 21 * 60,
-      endMinutes: 5 * 60,
+    const secondThemeSettings = {
+      sleepWindow: {
+        startMinutes: 21 * 60,
+        endMinutes: 5 * 60,
+      },
+      autoInfraredEnabled: false,
     };
 
-    expect(await settingsRepository.getSleepWindow()).toBeNull();
+    expect(await settingsRepository.getThemeSettings()).toBeNull();
 
-    await settingsRepository.saveSleepWindow(firstSleepWindow);
-    expect(await settingsRepository.getSleepWindow()).toEqual(firstSleepWindow);
+    await settingsRepository.saveThemeSettings(firstThemeSettings);
+    expect(await settingsRepository.getThemeSettings()).toEqual(firstThemeSettings);
 
-    await settingsRepository.saveSleepWindow(secondSleepWindow);
-    expect(await settingsRepository.getSleepWindow()).toEqual(secondSleepWindow);
+    await settingsRepository.saveThemeSettings(secondThemeSettings);
+    expect(await settingsRepository.getThemeSettings()).toEqual(secondThemeSettings);
   });
 });

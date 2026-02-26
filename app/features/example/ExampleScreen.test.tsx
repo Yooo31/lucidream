@@ -15,11 +15,14 @@ describe('ExampleScreen', () => {
   it('uses infrared palette when clock time is in the saved sleep window', async () => {
     const clock = new FakeClock(Date.parse('2026-02-26T22:30:00'));
     const settingsRepository: ThemeSettingsRepository = {
-      getSleepWindow: async () => ({
-        startMinutes: 22 * 60,
-        endMinutes: 6 * 60,
+      getThemeSettings: async () => ({
+        sleepWindow: {
+          startMinutes: 22 * 60,
+          endMinutes: 6 * 60,
+        },
+        autoInfraredEnabled: true,
       }),
-      saveSleepWindow: async () => {},
+      saveThemeSettings: async () => {},
     };
 
     render(

@@ -4,6 +4,7 @@ import { assertSleepWindow, type SleepWindow, type ThemeName } from './types';
 
 interface ResolveThemeOptions {
   sleepWindow: SleepWindow;
+  autoInfraredEnabled?: boolean;
   manualThemeOverride?: ThemeName | null;
 }
 
@@ -36,10 +37,14 @@ export class ThemeEngine {
   constructor(private readonly clock: Clock) {}
 
   resolveActiveTheme(options: ResolveThemeOptions): ThemeName {
-    const { manualThemeOverride = null, sleepWindow } = options;
+    const { manualThemeOverride = null, sleepWindow, autoInfraredEnabled = true } = options;
 
     if (manualThemeOverride !== null) {
       return manualThemeOverride;
+    }
+
+    if (!autoInfraredEnabled) {
+      return 'dark';
     }
 
     const minuteOfDay = toLocalMinuteOfDay(this.clock.now());
