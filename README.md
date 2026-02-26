@@ -18,8 +18,13 @@ Base technique professionnelle pour une application mobile Expo/React Native ori
 
 ```text
 app/
-  infra/
+  composition/
+  domain/
   features/
+    bootstrap/
+    navigation/
+    shell/
+  infra/
   components/
   services/
   storage/
@@ -36,6 +41,7 @@ e2e/
 - `offline-first`: logique locale prioritaire dans `app/storage` et `app/services`
 - modules faiblement couples et testables
 - exigences qualite: `typecheck`, `lint --max-warnings=0`, tests unitaires
+- shell applicatif: `AppProvider` initialise SQLite/migrations puis expose `CompositionRoot` au UI
 
 ## Prerequis
 

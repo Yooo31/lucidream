@@ -1,19 +1,16 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { ExampleScreen } from './app/features/example/ExampleScreen';
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
+import { AppProvider } from './app/composition';
+import { AppShell } from './app/features/shell';
 
 export default function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <ExampleScreen />
+    <SafeAreaProvider>
       <StatusBar />
-    </SafeAreaView>
+      <AppProvider>
+        <AppShell />
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }
