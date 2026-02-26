@@ -49,6 +49,7 @@ function createMockAudioSound(): AudioSound {
   return {
     setOnPlaybackStatusUpdate: () => undefined,
     playAsync: async () => undefined,
+    pauseAsync: async () => undefined,
     stopAsync: async () => undefined,
     unloadAsync: async () => undefined,
   };
