@@ -4,6 +4,8 @@ import { Linking, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } 
 import {
   DEFAULT_REALITY_CHECK_SETTINGS,
   DEFAULT_WBTB_SETTINGS,
+  isClockOverrideController,
+  type ClockOverrideController,
   type RealityCheckMode,
   type RealityCheckSettings,
   type WbtbSettings,
@@ -79,6 +81,7 @@ export interface SettingsScreenViewProps {
   exportDreamsCsvUseCase: DreamsCsvExporter;
   exportDreamsPdfUseCase: DreamsPdfExporter;
   onApplyThemeSettings: (settings: ThemeSettings) => void;
+  debugClockController?: ClockOverrideController;
   onOpenLicenseScreen?: () => void;
 }
 
@@ -273,6 +276,24 @@ function parsePositiveInteger(value: string): number | null {
   return parsed;
 }
 
+function parseDebugClockInput(value: string): number | null {
+  const normalizedValue = value.trim();
+
+  if (normalizedValue.length === 0) {
+    return null;
+  }
+
+  if (/^-?\d+$/.test(normalizedValue)) {
+    const parsedAsNumber = Number.parseInt(normalizedValue, 10);
+
+    return Number.isFinite(parsedAsNumber) ? parsedAsNumber : null;
+  }
+
+  const parsedAsDate = Date.parse(normalizedValue);
+
+  return Number.isFinite(parsedAsDate) ? parsedAsDate : null;
+}
+
 function getSaveSuccessMessage(result: SaveRealityCheckSettingsResult): string {
   const quotaLabel =
     result.maxRcPerDay === null ? 'unlimited daily quota' : `daily quota ${result.maxRcPerDay}`;
@@ -325,8 +346,10 @@ export function SettingsScreenView({
   exportDreamsCsvUseCase,
   exportDreamsPdfUseCase,
   onApplyThemeSettings,
+  debugClockController,
   onOpenLicenseScreen,
 }: SettingsScreenViewProps) {
+  const canUseDebugClock = debugClockController !== undefined;
   const [sleepStart, setSleepStart] = useState<string>(
     formatMinuteOfDay(initialSettings.sleepWindow.startMinutes),
   );
@@ -363,6 +386,8 @@ export function SettingsScreenView({
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [lastExportedPdfPath, setLastExportedPdfPath] = useState<string | null>(null);
+  const [debugClockInput, setDebugClockInput] = useState<string>('');
+  const [debugClockMessage, setDebugClockMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setSleepStart(formatMinuteOfDay(initialSettings.sleepWindow.startMinutes));
@@ -395,6 +420,17 @@ export function SettingsScreenView({
   useEffect(() => {
     setPreviewThemeName(activeThemeName);
   }, [activeThemeName]);
+
+  useEffect(() => {
+    if (!canUseDebugClock || !debugClockController) {
+      setDebugClockInput('');
+      setDebugClockMessage(null);
+      return;
+    }
+
+    const currentOverride = debugClockController.getNowOverride();
+    setDebugClockInput(currentOverride === null ? '' : new Date(currentOverride).toISOString());
+  }, [canUseDebugClock, debugClockController]);
 
   useEffect(() => {
     let isMounted = true;
@@ -656,6 +692,34 @@ export function SettingsScreenView({
     }
   };
 
+  const handleApplyDebugClock = () => {
+    if (!canUseDebugClock || !debugClockController) {
+      return;
+    }
+
+    const parsed = parseDebugClockInput(debugClockInput);
+
+    if (parsed === null) {
+      setDebugClockMessage('Clock override must be ISO-8601 or unix timestamp in milliseconds.');
+      return;
+    }
+
+    debugClockController.setNowOverride(parsed);
+    const formattedValue = new Date(parsed).toISOString();
+    setDebugClockInput(formattedValue);
+    setDebugClockMessage(`Clock override active: ${formattedValue}`);
+  };
+
+  const handleClearDebugClock = () => {
+    if (!canUseDebugClock || !debugClockController) {
+      return;
+    }
+
+    debugClockController.setNowOverride(null);
+    setDebugClockInput('');
+    setDebugClockMessage('Clock override cleared. Using device time.');
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: activeThemePalette.background }]}>
       <Text
@@ -663,6 +727,12 @@ export function SettingsScreenView({
         style={[styles.title, { color: activeThemePalette.textPrimary }]}
       >
         Settings
+      </Text>
+      <Text
+        style={[styles.sectionDescription, { color: activeThemePalette.textSecondary }]}
+        testID="settings-active-theme-name"
+      >
+        Active theme: {activeThemeName}
       </Text>
 
       <View
@@ -1163,6 +1233,89 @@ export function SettingsScreenView({
         </View>
       </View>
 
+      {canUseDebugClock && debugClockController ? (
+        <View
+          style={[
+            styles.section,
+            {
+              backgroundColor: '#101010',
+              borderColor: activeThemePalette.textSecondary,
+              borderWidth: 1,
+            },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: activeThemePalette.textPrimary }]}>
+            Debug Clock Override
+          </Text>
+          <Text style={[styles.sectionDescription, { color: activeThemePalette.textSecondary }]}>
+            For local E2E only. Provide ISO time or unix timestamp (ms).
+          </Text>
+          <TextInput
+            accessibilityLabel="Debug clock override"
+            autoCapitalize="none"
+            autoCorrect={false}
+            onChangeText={(value) => {
+              setDebugClockInput(value);
+              setDebugClockMessage(null);
+            }}
+            placeholder="2026-02-26T23:30:00.000Z"
+            placeholderTextColor={activeThemePalette.textSecondary}
+            style={[
+              styles.input,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                color: activeThemePalette.textPrimary,
+                marginTop: 12,
+              },
+            ]}
+            testID="settings-debug-clock-input"
+            value={debugClockInput}
+          />
+          <View style={styles.previewButtons}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleApplyDebugClock}
+              style={[
+                styles.previewButton,
+                {
+                  borderColor: activeThemePalette.textSecondary,
+                  backgroundColor: 'transparent',
+                },
+              ]}
+              testID="settings-debug-clock-apply-button"
+            >
+              <Text style={[styles.previewButtonText, { color: activeThemePalette.textPrimary }]}>
+                Apply override
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleClearDebugClock}
+              style={[
+                styles.previewButton,
+                {
+                  borderColor: activeThemePalette.textSecondary,
+                  backgroundColor: 'transparent',
+                },
+              ]}
+              testID="settings-debug-clock-clear-button"
+            >
+              <Text style={[styles.previewButtonText, { color: activeThemePalette.textPrimary }]}>
+                Clear override
+              </Text>
+            </Pressable>
+          </View>
+          {debugClockMessage ? (
+            <Text
+              style={[styles.sectionDescription, { color: activeThemePalette.textPrimary }]}
+              testID="settings-debug-clock-message"
+            >
+              {debugClockMessage}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <Pressable
         accessibilityRole="button"
         disabled={isSaving}
@@ -1203,8 +1356,9 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({ onOpenLicenseScreen }: SettingsScreenProps) {
-  const { useCases } = useCompositionRoot();
+  const { useCases, clock } = useCompositionRoot();
   const { sleepWindow, autoInfraredEnabled, themeName, colors, applyThemeSettings } = useTheme();
+  const debugClockController = __DEV__ && isClockOverrideController(clock) ? clock : undefined;
 
   return (
     <SettingsScreenView
@@ -1225,6 +1379,7 @@ export function SettingsScreen({ onOpenLicenseScreen }: SettingsScreenProps) {
       exportDreamsCsvUseCase={useCases.exportDreamsCsvUseCase}
       exportDreamsPdfUseCase={useCases.exportDreamsPdfUseCase}
       onApplyThemeSettings={applyThemeSettings}
+      {...(debugClockController ? { debugClockController } : {})}
       {...(onOpenLicenseScreen ? { onOpenLicenseScreen } : {})}
     />
   );

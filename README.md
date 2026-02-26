@@ -89,6 +89,7 @@ pnpm lint:fix
 pnpm format
 pnpm format:write
 pnpm test
+pnpm test:e2e:maestro
 ```
 
 ## Verification locale

@@ -15,6 +15,7 @@
     "format:write": "prettier --write .",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
+    "test:e2e:maestro": "sh -c 'if command -v maestro >/dev/null 2>&1; then maestro test e2e/maestro/flows; elif [ -x \"$HOME/.maestro/bin/maestro\" ]; then \"$HOME/.maestro/bin/maestro\" test e2e/maestro/flows; else echo \"Maestro CLI not found. Install with: curl -Ls \\\"https://get.maestro.mobile.dev\\\" | bash\"; exit 127; fi'",
     "commitlint": "commitlint",
     "prepare": "husky",
     "release": "semantic-release"

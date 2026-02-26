@@ -1,4 +1,4 @@
-import { SystemClock, type Clock } from '../domain';
+import { OverridableClock, type Clock } from '../domain';
 import { AudioPlayer, AudioRecorder } from '../infra/audio';
 import { ExpoNotificationsClient } from '../infra/notifications';
 import type { ThemeSettingsRepository } from '../theme/ThemeSettingsRepository';
@@ -104,7 +104,7 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
   const initializeDatabase =
     dependencies.initializeDatabase ?? (async () => initializeSqliteDatabase());
   const database = await initializeDatabase();
-  const clock = dependencies.clock ?? new SystemClock();
+  const clock = dependencies.clock ?? new OverridableClock();
   const audioRecorder = new AudioRecorder();
   const audioPlayer = new AudioPlayer();
   const notificationsClient = new ExpoNotificationsClient();

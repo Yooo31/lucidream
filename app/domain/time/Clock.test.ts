@@ -1,5 +1,6 @@
 import { toUtcDayKey } from './Clock';
 import { FakeClock } from './FakeClock';
+import { isClockOverrideController, OverridableClock } from './OverridableClock';
 import { SystemClock } from './SystemClock';
 
 describe('time domain clock utilities', () => {
@@ -65,5 +66,60 @@ describe('FakeClock', () => {
     expect(() => clock.advanceBy(Number.POSITIVE_INFINITY)).toThrow(
       'deltaMs must be a finite number.',
     );
+  });
+});
+
+describe('OverridableClock', () => {
+  it('falls back to Date.now() when no override is set', () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-02-26T10:00:00.000Z'));
+    const clock = new OverridableClock();
+
+    expect(clock.now()).toBe(Date.parse('2026-02-26T10:00:00.000Z'));
+    expect(clock.todayKey()).toBe('2026-02-26');
+
+    nowSpy.mockRestore();
+  });
+
+  it('supports setting and clearing a time override', () => {
+    const clock = new OverridableClock(() => Date.parse('2026-02-26T10:00:00.000Z'));
+
+    clock.setNowOverride(Date.parse('2026-02-26T23:30:00.000Z'));
+    expect(clock.now()).toBe(Date.parse('2026-02-26T23:30:00.000Z'));
+    expect(clock.todayKey()).toBe('2026-02-26');
+
+    clock.setNowOverride(null);
+    expect(clock.now()).toBe(Date.parse('2026-02-26T10:00:00.000Z'));
+  });
+
+  it('notifies listeners when override changes', () => {
+    const clock = new OverridableClock();
+    const listener = jest.fn();
+    const unsubscribe = clock.subscribe(listener);
+
+    clock.setNowOverride(Date.parse('2026-02-26T23:30:00.000Z'));
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    clock.setNowOverride(null);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws for non-finite override values', () => {
+    expect(() => new OverridableClock(() => 0, Number.NaN)).toThrow(
+      'initialNowOverride must be a finite number.',
+    );
+
+    const clock = new OverridableClock();
+    expect(() => clock.setNowOverride(Number.POSITIVE_INFINITY)).toThrow(
+      'timestamp must be a finite number.',
+    );
+  });
+});
+
+describe('isClockOverrideController', () => {
+  it('returns true only for override-capable clocks', () => {
+    expect(isClockOverrideController(new FakeClock())).toBe(false);
+    expect(isClockOverrideController(new SystemClock())).toBe(false);
+    expect(isClockOverrideController(new OverridableClock())).toBe(true);
   });
 });
