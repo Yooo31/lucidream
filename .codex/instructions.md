@@ -14,7 +14,7 @@ These instructions are mandatory for all future contributions to LuciDream V1.
 
 ## Product Stack Constraints
 
-- Runtime: Expo with latest stable SDK.
+- Runtime: Expo SDK 54 (compatible Expo Go).
 - App type: React Native hybrid app.
 - Structured data: `expo-sqlite`.
 - File storage: `expo-file-system` for audio (`.m4a`) and drawing exports (`.png`).

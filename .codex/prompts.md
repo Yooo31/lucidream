@@ -6,7 +6,7 @@
 Task: Add feature <name> for LuciDream V1.
 
 Constraints:
-- Expo latest SDK, React Native hybrid app.
+- Expo SDK 54, React Native hybrid app.
 - 100% offline/local only (no backend, no external API, no AI).
 - Use only approved modules: expo-sqlite, expo-file-system, expo-av, expo-notifications, react-native-svg.
 - Feature gates must go through centralized gate service using local license_type (FREE/MEDIUM/PRO).
