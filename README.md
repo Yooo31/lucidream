@@ -40,6 +40,9 @@ e2e/
 
 - `feature-first`: chaque domaine met ses ecrans, logique, tests et contrats dans `app/features/*`
 - `offline-first`: logique locale prioritaire dans `app/storage` et `app/services`
+- ecran Journal: `Quick Capture` + `Dream History` + `Dream Detail`, avec limite d'historique
+  appliquee par `ListDreamsUseCase` selon la licence locale (`FREE` 7j, `MEDIUM` 30j, `PRO`
+  illimite)
 - theming local: `ThemeProvider` + `ThemeEngine` basculent automatiquement entre `dark` et
   `infrared` selon la fenetre de sommeil stockee en SQLite
 - ecran Settings: configuration locale `sleep window` + toggle `Auto Infrared mode`, persistes en

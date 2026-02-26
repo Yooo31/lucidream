@@ -81,6 +81,30 @@ describe('ListDreamsUseCase', () => {
     });
   });
 
+  it('applies MEDIUM history limit through feature gate', async () => {
+    const dreamRepository = createDreamRepositoryMock();
+    const licenseRepository = createLicenseRepositoryMock('MEDIUM');
+    const usageLogRepository = createUsageLogRepositoryMock();
+    const clock = new FakeClock(Date.parse('2026-02-26T12:00:00.000Z'));
+
+    const useCase = new ListDreamsUseCase(
+      dreamRepository,
+      licenseRepository,
+      usageLogRepository,
+      clock,
+    );
+
+    await useCase.execute({
+      startCreatedAt: Date.parse('2025-12-01T00:00:00.000Z'),
+      endCreatedAt: Date.parse('2026-02-26T23:59:59.999Z'),
+    });
+
+    expect(dreamRepository.listByCreatedAtRange).toHaveBeenCalledWith({
+      startCreatedAt: Date.parse('2026-01-28T00:00:00.000Z'),
+      endCreatedAt: Date.parse('2026-02-26T23:59:59.999Z'),
+    });
+  });
+
   it('returns validation failure for invalid pagination or timestamps', async () => {
     const useCase = new ListDreamsUseCase(
       createDreamRepositoryMock(),
