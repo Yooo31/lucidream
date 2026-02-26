@@ -1,4 +1,10 @@
 export { DREAM_QUALITIES, type Dream, type DreamQuality } from './Dream';
+export {
+  LICENSE_GATE_LIMITS,
+  resolveFeatureGateDecision,
+  type FeatureGateCounts,
+  type FeatureGateDecision,
+} from './featureGate';
 export { LICENSE_TYPES, type LicenseType } from './LicenseType';
 export { TAG_TYPES, type Tag, type TagType } from './Tag';
 export { FakeClock, SystemClock, toUtcDayKey, type Clock } from './time';
