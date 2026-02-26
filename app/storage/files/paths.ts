@@ -1,8 +1,10 @@
 import {
   AUDIO_FOLDER,
   DRAWINGS_FOLDER,
+  EXPORTS_FOLDER,
   STORAGE_ROOT_FOLDER,
   type AudioFilePath,
+  type CsvFilePath,
   type DrawingFilePath,
   type StorageDirectoryUri,
   type StoragePaths,
@@ -33,16 +35,26 @@ export function createStoragePaths(documentDirectory: string): StoragePaths {
   const rootDir = `${normalizedDocumentDirectory}/${STORAGE_ROOT_FOLDER}` as StorageRootUri;
   const audioDir = `${rootDir}/${AUDIO_FOLDER}` as StoragePaths['audioDir'];
   const drawingsDir = `${rootDir}/${DRAWINGS_FOLDER}` as StoragePaths['drawingsDir'];
+  const exportsDir = `${rootDir}/${EXPORTS_FOLDER}` as StoragePaths['exportsDir'];
 
   return {
     rootDir,
     audioDir,
     drawingsDir,
+    exportsDir,
   };
 }
 
 export function directoryForKind(paths: StoragePaths, kind: StoredFileKind): StorageDirectoryUri {
-  return kind === 'audio' ? paths.audioDir : paths.drawingsDir;
+  if (kind === 'audio') {
+    return paths.audioDir;
+  }
+
+  if (kind === 'drawing') {
+    return paths.drawingsDir;
+  }
+
+  return paths.exportsDir;
 }
 
 export function createStoredFilePath(
@@ -56,5 +68,9 @@ export function createStoredFilePath(
     return `${paths.audioDir}/${safeId}.m4a` as AudioFilePath;
   }
 
-  return `${paths.drawingsDir}/${safeId}.png` as DrawingFilePath;
+  if (kind === 'drawing') {
+    return `${paths.drawingsDir}/${safeId}.png` as DrawingFilePath;
+  }
+
+  return `${paths.exportsDir}/${safeId}.csv` as CsvFilePath;
 }

@@ -10,6 +10,13 @@ export {
   type ListDreamsResult,
 } from './ListDreamsUseCase';
 export {
+  ExportDreamsCsvUseCase,
+  createDreamsCsv,
+  type DreamCsvRecord,
+  type DreamsCsvFileStore,
+  type ExportDreamsCsvResult,
+} from './ExportDreamsCsvUseCase';
+export {
   AddTagToDreamUseCase,
   type AddTagToDreamInput,
   type AddTagToDreamResult,
