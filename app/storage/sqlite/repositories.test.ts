@@ -190,6 +190,65 @@ describe('sqlite repositories integration', () => {
     );
   });
 
+  it('lists and deletes dream assets while keeping latest pointers in sync', async () => {
+    const dreamRepository = new SqliteDreamRepository(database);
+    const createdAt = Date.parse('2026-02-26T12:00:00.000Z');
+
+    await dreamRepository.create({
+      id: 'dream-assets',
+      createdAt,
+      quality: 'CLEAR',
+      tagIds: [],
+      content: 'Dream with assets',
+      audioPath: 'file:///sandbox/lucidream/audio/dream-assets.m4a',
+      drawingPath: 'file:///sandbox/lucidream/drawings/dream-assets-1.png',
+    });
+
+    await dreamRepository.update({
+      id: 'dream-assets',
+      createdAt,
+      quality: 'CLEAR',
+      tagIds: [],
+      content: 'Dream with assets',
+      audioPath: 'file:///sandbox/lucidream/audio/dream-assets.m4a',
+      drawingPath: 'file:///sandbox/lucidream/drawings/dream-assets-2.png',
+    });
+
+    const initialAssets = await dreamRepository.listAssetsByDreamId('dream-assets');
+    const audioAsset = initialAssets.find((asset) => asset.type === 'AUDIO');
+    const latestDrawingAsset = initialAssets.find(
+      (asset) => asset.type === 'DRAWING' && asset.filePath.endsWith('dream-assets-2.png'),
+    );
+
+    expect(initialAssets.map((asset) => asset.filePath)).toEqual([
+      'file:///sandbox/lucidream/drawings/dream-assets-2.png',
+      'file:///sandbox/lucidream/drawings/dream-assets-1.png',
+      'file:///sandbox/lucidream/audio/dream-assets.m4a',
+    ]);
+    expect(audioAsset).toBeDefined();
+    expect(latestDrawingAsset).toBeDefined();
+
+    if (!latestDrawingAsset || !audioAsset) {
+      throw new Error('Expected asset fixtures to exist.');
+    }
+
+    await dreamRepository.deleteAsset('dream-assets', latestDrawingAsset.id);
+    await dreamRepository.deleteAsset('dream-assets', audioAsset.id);
+
+    expect(await dreamRepository.listAssetsByDreamId('dream-assets')).toEqual([
+      expect.objectContaining({
+        type: 'DRAWING',
+        filePath: 'file:///sandbox/lucidream/drawings/dream-assets-1.png',
+      }),
+    ]);
+    expect(await dreamRepository.getById('dream-assets')).toEqual(
+      expect.objectContaining({
+        drawingPath: 'file:///sandbox/lucidream/drawings/dream-assets-1.png',
+      }),
+    );
+    expect((await dreamRepository.getById('dream-assets'))?.audioPath).toBeUndefined();
+  });
+
   it('supports usage log CRUD and quota queries', async () => {
     const usageLogRepository = new SqliteUsageLogRepository(database);
     const startCreatedAt = Date.parse('2026-02-20T00:00:00.000Z');

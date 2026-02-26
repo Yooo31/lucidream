@@ -1,9 +1,7 @@
-import type { Dream, DreamQuality } from '../../domain';
+import type { Dream, DreamAsset, DreamAssetType, DreamQuality } from '../../domain';
 import type { DreamHistoryQuery, DreamRepository } from '../../services';
 
 import type { SqliteBindParams, SqliteDatabase, SqliteRow } from './types';
-
-type DreamAssetType = 'AUDIO' | 'DRAWING';
 
 interface DreamRow extends SqliteRow {
   id: string;
@@ -18,8 +16,11 @@ interface DreamTagRow extends SqliteRow {
 }
 
 interface DreamAssetRow extends SqliteRow {
+  id: string;
+  dream_id: string;
   asset_type: DreamAssetType;
   file_path: string;
+  created_at: number;
 }
 
 interface CountRow extends SqliteRow {
@@ -90,6 +91,16 @@ function mapDreamRow(row: DreamRow, tagIds: readonly string[], assets: DreamAsse
   }
 
   return dream;
+}
+
+function mapDreamAssetRow(row: DreamAssetRow): DreamAsset {
+  return {
+    id: row.id,
+    dreamId: row.dream_id,
+    type: row.asset_type,
+    filePath: row.file_path,
+    createdAt: row.created_at,
+  };
 }
 
 export class SqliteDreamRepository implements DreamRepository {
@@ -163,6 +174,27 @@ WHERE id = ?;
       await this.database.runAsync('DELETE FROM dream_assets WHERE dream_id = ?;', [id]);
       await this.database.runAsync('DELETE FROM dreams WHERE id = ?;', [id]);
     });
+  }
+
+  async listAssetsByDreamId(dreamId: string): Promise<readonly DreamAsset[]> {
+    const rows = await this.database.getAllAsync<DreamAssetRow>(
+      `
+SELECT id, dream_id, asset_type, file_path, created_at
+FROM dream_assets
+WHERE dream_id = ?
+ORDER BY created_at DESC, id DESC;
+`,
+      [dreamId],
+    );
+
+    return rows.map(mapDreamAssetRow);
+  }
+
+  async deleteAsset(dreamId: string, assetId: string): Promise<void> {
+    await this.database.runAsync('DELETE FROM dream_assets WHERE dream_id = ? AND id = ?;', [
+      dreamId,
+      assetId,
+    ]);
   }
 
   async listByCreatedAtRange(query: DreamHistoryQuery): Promise<readonly Dream[]> {
@@ -287,7 +319,7 @@ VALUES (?, ?, ?, ?, ?);
     }
 
     const drawingAssets = await this.listDreamAssetsByType(dreamId, 'DRAWING');
-    const latestDrawingPath = drawingAssets[0]?.file_path;
+    const latestDrawingPath = drawingAssets[0]?.filePath;
 
     if (latestDrawingPath === filePath) {
       return;
@@ -308,18 +340,9 @@ VALUES (?, ?, ?, ?, ?);
   private async listDreamAssetsByType(
     dreamId: string,
     assetType: DreamAssetType,
-  ): Promise<DreamAssetRow[]> {
-    const rows = await this.database.getAllAsync<DreamAssetRow>(
-      `
-SELECT asset_type, file_path
-FROM dream_assets
-WHERE dream_id = ?
-ORDER BY created_at DESC, id DESC;
-`,
-      [dreamId],
-    );
-
-    return rows.filter((row) => row.asset_type === assetType);
+  ): Promise<readonly DreamAsset[]> {
+    const assets = await this.listAssetsByDreamId(dreamId);
+    return assets.filter((asset) => asset.type === assetType);
   }
 
   private async hydrateDream(row: DreamRow): Promise<Dream> {
@@ -346,26 +369,18 @@ ORDER BY rowid ASC;
   }
 
   private async getDreamAssets(dreamId: string): Promise<DreamAssets> {
-    const rows = await this.database.getAllAsync<DreamAssetRow>(
-      `
-SELECT asset_type, file_path
-FROM dream_assets
-WHERE dream_id = ?
-ORDER BY created_at DESC, id DESC;
-`,
-      [dreamId],
-    );
+    const assets = await this.listAssetsByDreamId(dreamId);
 
-    return rows.reduce<DreamAssets>((assets, row) => {
-      if (row.asset_type === 'AUDIO' && assets.audioPath === undefined) {
-        return { ...assets, audioPath: row.file_path };
+    return assets.reduce<DreamAssets>((current, asset) => {
+      if (asset.type === 'AUDIO' && current.audioPath === undefined) {
+        return { ...current, audioPath: asset.filePath };
       }
 
-      if (row.asset_type === 'DRAWING' && assets.drawingPath === undefined) {
-        return { ...assets, drawingPath: row.file_path };
+      if (asset.type === 'DRAWING' && current.drawingPath === undefined) {
+        return { ...current, drawingPath: asset.filePath };
       }
 
-      return assets;
+      return current;
     }, {});
   }
 }

@@ -1,4 +1,5 @@
 export { DREAM_QUALITIES, type Dream, type DreamQuality } from './Dream';
+export { DREAM_ASSET_TYPES, type DreamAsset, type DreamAssetType } from './DreamAsset';
 export {
   LICENSE_GATE_LIMITS,
   resolveFeatureGateDecision,

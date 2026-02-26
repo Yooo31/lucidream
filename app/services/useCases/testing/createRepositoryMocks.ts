@@ -1,4 +1,12 @@
-import type { Dream, LicenseType, Tag, TagType, UsageLog, UsageLogType } from '../../../domain';
+import type {
+  Dream,
+  DreamAsset,
+  LicenseType,
+  Tag,
+  TagType,
+  UsageLog,
+  UsageLogType,
+} from '../../../domain';
 import type {
   DreamHistoryQuery,
   DreamRepository,
@@ -13,6 +21,8 @@ export function createDreamRepositoryMock(): jest.Mocked<DreamRepository> {
     getById: jest.fn<Promise<Dream | null>, [string]>(async () => null),
     update: jest.fn<Promise<void>, [Dream]>(async () => undefined),
     delete: jest.fn<Promise<void>, [string]>(async () => undefined),
+    listAssetsByDreamId: jest.fn<Promise<readonly DreamAsset[]>, [string]>(async () => []),
+    deleteAsset: jest.fn<Promise<void>, [string, string]>(async () => undefined),
     listByCreatedAtRange: jest.fn<Promise<readonly Dream[]>, [DreamHistoryQuery]>(async () => []),
     countByCreatedAtRange: jest.fn<Promise<number>, [number, number]>(async () => 0),
     countDrawingsByDreamId: jest.fn<Promise<number>, [string]>(async () => 0),

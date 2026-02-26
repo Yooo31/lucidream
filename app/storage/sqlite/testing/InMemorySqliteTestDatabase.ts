@@ -308,6 +308,17 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
       return undefined;
     }
 
+    if (sql === 'DELETE FROM DREAM_ASSETS WHERE DREAM_ID = ? AND ID = ?') {
+      const [dreamId, assetId] = params as [string, string];
+      const asset = this.state.dreamAssets.get(assetId);
+
+      if (asset && asset.dream_id === dreamId) {
+        this.state.dreamAssets.delete(assetId);
+      }
+
+      return undefined;
+    }
+
     if (sql.startsWith('INSERT INTO DREAM_ASSETS')) {
       const [id, dreamId, assetType, filePath, createdAt] = params as [
         string,
@@ -599,6 +610,24 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
         ).map((row) => ({
           asset_type: row.asset_type,
           file_path: row.file_path,
+        })),
+      );
+    }
+
+    if (
+      sql ===
+      'SELECT ID, DREAM_ID, ASSET_TYPE, FILE_PATH, CREATED_AT FROM DREAM_ASSETS WHERE DREAM_ID = ? ORDER BY CREATED_AT DESC, ID DESC'
+    ) {
+      const [dreamId] = params as [string];
+      return castRows<T>(
+        sortByCreatedAtDescIdDesc(
+          Array.from(this.state.dreamAssets.values()).filter((row) => row.dream_id === dreamId),
+        ).map((row) => ({
+          id: row.id,
+          dream_id: row.dream_id,
+          asset_type: row.asset_type,
+          file_path: row.file_path,
+          created_at: row.created_at,
         })),
       );
     }

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useCompositionRoot } from '../../composition';
-import type { Dream, DreamQuality, Tag, TagType } from '../../domain';
+import type { Dream, DreamAsset, DreamQuality, Tag, TagType } from '../../domain';
 import { useTheme, type ThemePalette } from '../../theme';
 import { DreamDrawingCanvas, type DreamDrawingCanvasHandle } from './DreamDrawingCanvas';
 
@@ -78,6 +78,45 @@ interface DreamDrawingSaverController {
   }>;
 }
 
+type DreamAssetReadResult = { ok: true; assets: readonly DreamAsset[] } | { ok: false };
+
+interface DreamAssetReader {
+  execute(input: { dreamId: string }): Promise<DreamAssetReadResult>;
+}
+
+type DreamAssetDeleteResult =
+  | {
+      ok: true;
+      dream: Dream;
+      assets: readonly DreamAsset[];
+      deletedAsset: DreamAsset;
+    }
+  | {
+      ok: false;
+      code?: string;
+      dream?: Dream;
+      assets?: readonly DreamAsset[];
+      deletedAsset?: DreamAsset;
+    };
+
+interface DreamAssetDeleter {
+  execute(input: { dreamId: string; assetId: string }): Promise<DreamAssetDeleteResult>;
+}
+
+const DEFAULT_DREAM_ASSET_READER: DreamAssetReader = {
+  execute: async () => ({
+    ok: true,
+    assets: [],
+  }),
+};
+
+const DEFAULT_DREAM_ASSET_DELETER: DreamAssetDeleter = {
+  execute: async () => ({
+    ok: false as const,
+    code: 'ASSET_NOT_FOUND',
+  }),
+};
+
 type AudioPlaybackState = 'IDLE' | 'PLAYING' | 'PAUSED';
 
 const TAG_TYPE_OPTIONS: ReadonlyArray<{ type: TagType; label: string }> = [
@@ -88,6 +127,30 @@ const TAG_TYPE_OPTIONS: ReadonlyArray<{ type: TagType; label: string }> = [
 ];
 
 const styles = StyleSheet.create({
+  assetDeleteButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+    minHeight: 34,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  assetDeleteButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  assetItem: {
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 10,
+    padding: 10,
+  },
+  assetItemLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
   audioButton: {
     borderRadius: 10,
     borderWidth: 1,
@@ -348,6 +411,10 @@ function toDrawingLimitMessage(decision: { maxDrawingsPerDream: number }): strin
   return `Drawing limit reached (${decision.maxDrawingsPerDream} per dream).`;
 }
 
+function toAssetTypeLabel(type: DreamAsset['type']): string {
+  return type === 'AUDIO' ? 'Audio' : 'Drawing';
+}
+
 interface DreamDetailScreenViewProps {
   activeThemePalette: ThemePalette;
   dream: Dream;
@@ -355,6 +422,8 @@ interface DreamDetailScreenViewProps {
   createTagUseCase: DreamTagCreator;
   addTagToDreamUseCase: DreamTagAssigner;
   listDreamTagsUseCase: DreamTagReader;
+  listDreamAssetsUseCase?: DreamAssetReader;
+  deleteDreamAssetUseCase?: DreamAssetDeleter;
   recordDreamAudioUseCase: DreamAudioRecorderController;
   playDreamAudioUseCase: DreamAudioPlayerController;
   saveDreamDrawingUseCase: DreamDrawingSaverController;
@@ -370,6 +439,8 @@ export function DreamDetailScreenView({
   createTagUseCase,
   addTagToDreamUseCase,
   listDreamTagsUseCase,
+  listDreamAssetsUseCase = DEFAULT_DREAM_ASSET_READER,
+  deleteDreamAssetUseCase = DEFAULT_DREAM_ASSET_DELETER,
   recordDreamAudioUseCase,
   playDreamAudioUseCase,
   saveDreamDrawingUseCase,
@@ -380,6 +451,7 @@ export function DreamDetailScreenView({
   const drawingCanvasRef = useRef<DreamDrawingCanvasHandle | null>(null);
   const [localDream, setLocalDream] = useState(dream);
   const [dreamTags, setDreamTags] = useState<readonly Tag[]>([]);
+  const [dreamAssets, setDreamAssets] = useState<readonly DreamAsset[]>([]);
   const [selectedTagType, setSelectedTagType] = useState<TagType>('CHARACTER');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<readonly Tag[]>([]);
@@ -395,6 +467,9 @@ export function DreamDetailScreenView({
   const [drawingErrorMessage, setDrawingErrorMessage] = useState<string | null>(null);
   const [drawingStatusMessage, setDrawingStatusMessage] = useState<string | null>(null);
   const [isDrawingSubmitting, setIsDrawingSubmitting] = useState(false);
+  const [assetErrorMessage, setAssetErrorMessage] = useState<string | null>(null);
+  const [assetStatusMessage, setAssetStatusMessage] = useState<string | null>(null);
+  const [isAssetSubmitting, setIsAssetSubmitting] = useState(false);
 
   const lucidityScore = inferLucidityScore(localDream.quality);
   const normalizedSearchQuery = useMemo(() => normalizeTagName(searchQuery), [searchQuery]);
@@ -404,6 +479,8 @@ export function DreamDetailScreenView({
     setAudioPlaybackState('IDLE');
     setDrawingErrorMessage(null);
     setDrawingStatusMessage(null);
+    setAssetErrorMessage(null);
+    setAssetStatusMessage(null);
   }, [dream]);
 
   useEffect(
@@ -442,6 +519,37 @@ export function DreamDetailScreenView({
       isMounted = false;
     };
   }, [listDreamTagsUseCase, localDream.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    listDreamAssetsUseCase
+      .execute({ dreamId: localDream.id })
+      .then((result) => {
+        if (!isMounted) {
+          return;
+        }
+
+        if (!result.ok || result.assets === undefined) {
+          setAssetErrorMessage('Unable to load dream assets.');
+          return;
+        }
+
+        setAssetErrorMessage(null);
+        setDreamAssets(result.assets);
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        setAssetErrorMessage('Unable to load dream assets.');
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [listDreamAssetsUseCase, localDream.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -510,6 +618,18 @@ export function DreamDetailScreenView({
         normalizeTagName(tag.name).toLowerCase() === normalizedQuery,
     );
   }, [dreamTags, normalizedSearchQuery, searchResults, selectedTagType]);
+
+  const refreshDreamAssets = async () => {
+    const result = await listDreamAssetsUseCase.execute({ dreamId: localDream.id });
+
+    if (!result.ok || result.assets === undefined) {
+      setAssetErrorMessage('Unable to refresh dream assets.');
+      return;
+    }
+
+    setAssetErrorMessage(null);
+    setDreamAssets(result.assets);
+  };
 
   const attachTagToDream = async (tag: Tag): Promise<boolean> => {
     const result = await addTagToDreamUseCase.execute({
@@ -637,6 +757,7 @@ export function DreamDetailScreenView({
 
       setLocalDream(stopResult.dream);
       setAudioStatusMessage(`Attached audio: ${toFileName(stopResult.audioPath)}`);
+      refreshDreamAssets().catch(() => undefined);
     } finally {
       setIsAudioSubmitting(false);
     }
@@ -784,9 +905,90 @@ export function DreamDetailScreenView({
       setLocalDream(result.dream);
       setDrawingStatusMessage(`Attached drawing: ${toFileName(result.drawingPath)}`);
       exporter.clear?.();
+      refreshDreamAssets().catch(() => undefined);
     } finally {
       setIsDrawingSubmitting(false);
     }
+  };
+
+  const handleDeleteAsset = async (asset: DreamAsset) => {
+    if (isAssetSubmitting) {
+      return;
+    }
+
+    setIsAssetSubmitting(true);
+    setAssetErrorMessage(null);
+    setAssetStatusMessage(null);
+
+    try {
+      if (asset.type === 'AUDIO' && audioPlaybackState !== 'IDLE') {
+        await playDreamAudioUseCase.stop();
+        setAudioPlaybackState('IDLE');
+      }
+
+      const result = await deleteDreamAssetUseCase.execute({
+        dreamId: localDream.id,
+        assetId: asset.id,
+      });
+
+      if (!result.ok) {
+        if (result.code === 'ASSET_FILE_DELETE_FAILED') {
+          if (result.dream) {
+            setLocalDream(result.dream);
+          }
+          if (result.assets) {
+            setDreamAssets(result.assets);
+          }
+          setAssetErrorMessage(
+            `Asset removed from dream, but local file deletion failed: ${toFileName(asset.filePath)}.`,
+          );
+          return;
+        }
+
+        if (result.code === 'ASSET_NOT_FOUND') {
+          setAssetErrorMessage('Asset no longer exists.');
+          return;
+        }
+
+        if (result.code === 'DREAM_NOT_FOUND') {
+          setAssetErrorMessage('Dream no longer exists.');
+          return;
+        }
+
+        setAssetErrorMessage('Unable to delete asset.');
+        return;
+      }
+
+      setLocalDream(result.dream);
+      setDreamAssets(result.assets);
+      setAssetStatusMessage(`Deleted asset: ${toFileName(result.deletedAsset.filePath)}`);
+    } finally {
+      setIsAssetSubmitting(false);
+    }
+  };
+
+  const handleRequestAssetDelete = (asset: DreamAsset) => {
+    if (isAssetSubmitting) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete asset?',
+      `Delete ${toFileName(asset.filePath)} from this dream? This removes the asset record and local file.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            handleDeleteAsset(asset).catch(() => undefined);
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -835,6 +1037,68 @@ export function DreamDetailScreenView({
         <Text style={[styles.rowValue, { color: activeThemePalette.textPrimary }]}>
           {formatLocalDateTime(localDream.createdAt)}
         </Text>
+      </View>
+
+      <View
+        style={[
+          styles.row,
+          {
+            borderColor: activeThemePalette.textSecondary,
+            backgroundColor: '#0D0D0D',
+          },
+        ]}
+      >
+        <Text style={[styles.rowLabel, { color: activeThemePalette.textSecondary }]}>Assets</Text>
+        {dreamAssets.length === 0 ? (
+          <Text style={[styles.rowValue, { color: activeThemePalette.textPrimary }]}>
+            No attached assets.
+          </Text>
+        ) : (
+          dreamAssets.map((asset) => (
+            <View
+              key={asset.id}
+              style={[
+                styles.assetItem,
+                {
+                  borderColor: activeThemePalette.textSecondary,
+                  backgroundColor: '#111111',
+                },
+              ]}
+              testID={`dream-detail-asset-item-${asset.id}`}
+            >
+              <Text style={[styles.assetItemLabel, { color: activeThemePalette.textSecondary }]}>
+                {toAssetTypeLabel(asset.type)}
+              </Text>
+              <Text style={[styles.rowValue, { color: activeThemePalette.textPrimary }]}>
+                {toFileName(asset.filePath)}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isAssetSubmitting }}
+                onPress={() => {
+                  handleRequestAssetDelete(asset);
+                }}
+                style={[
+                  styles.assetDeleteButton,
+                  {
+                    borderColor: activeThemePalette.textSecondary,
+                    backgroundColor: '#1A1111',
+                    opacity: isAssetSubmitting ? 0.6 : 1,
+                  },
+                ]}
+                testID={`dream-detail-asset-delete-${asset.id}`}
+              >
+                <Text
+                  style={[styles.assetDeleteButtonText, { color: activeThemePalette.textPrimary }]}
+                >
+                  Delete asset
+                </Text>
+              </Pressable>
+            </View>
+          ))
+        )}
+        {assetErrorMessage ? <Text style={styles.errorText}>{assetErrorMessage}</Text> : null}
+        {assetStatusMessage ? <Text style={styles.infoText}>{assetStatusMessage}</Text> : null}
       </View>
 
       <View
@@ -1260,6 +1524,8 @@ export function DreamDetailScreen({ dream, onBack }: DreamDetailScreenProps) {
       createTagUseCase={useCases.createTagUseCase}
       addTagToDreamUseCase={useCases.addTagToDreamUseCase}
       listDreamTagsUseCase={useCases.listDreamTagsUseCase}
+      listDreamAssetsUseCase={useCases.listDreamAssetsUseCase}
+      deleteDreamAssetUseCase={useCases.deleteDreamAssetUseCase}
       recordDreamAudioUseCase={useCases.recordDreamAudioUseCase}
       playDreamAudioUseCase={useCases.playDreamAudioUseCase}
       saveDreamDrawingUseCase={useCases.saveDreamDrawingUseCase}

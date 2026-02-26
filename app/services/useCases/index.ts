@@ -31,6 +31,17 @@ export {
   type ListDreamTagsResult,
 } from './ListDreamTagsUseCase';
 export {
+  ListDreamAssetsUseCase,
+  type ListDreamAssetsInput,
+  type ListDreamAssetsResult,
+} from './ListDreamAssetsUseCase';
+export {
+  DeleteDreamAssetUseCase,
+  type DeleteDreamAssetInput,
+  type DeleteDreamAssetResult,
+  type DreamAssetFileStore,
+} from './DeleteDreamAssetUseCase';
+export {
   RecordUsageLogUseCase,
   type RecordUsageLogInput,
   type RecordUsageLogResult,
