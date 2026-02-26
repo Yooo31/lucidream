@@ -1,17 +1,17 @@
 import {
-  LICENSE_GATE_LIMITS,
   assertRealityCheckSettings,
-  resolveFeatureGateDecision,
   toUtcDayKey,
   type Clock,
-  type FeatureGateCounts,
-  type LicenseType,
   type RealityCheckSettings,
 } from '../../domain';
 import type { NotificationsClient } from '../../infra/notifications';
 import type { LicenseRepository, UsageLogRepository } from '../repositories';
 
-import { getUtcDayRangeForTimestamp } from './featureGateResolver';
+import {
+  getUtcDayRangeForTimestamp,
+  resolveFeatureGateFromLicenseAndCounts,
+  resolveLicenseTypeOrFree,
+} from './featureGateResolver';
 import { RecordUsageLogUseCase } from './RecordUsageLogUseCase';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -29,13 +29,6 @@ export interface ScheduleRealityChecksResult {
 }
 
 type RandomNumberGenerator = () => number;
-
-function createDayClock(timestamp: number): Clock {
-  return {
-    now: () => timestamp,
-    todayKey: () => toUtcDayKey(timestamp),
-  };
-}
 
 function toLocalMinuteOfDay(timestamp: number): number {
   const date = new Date(timestamp);
@@ -119,23 +112,8 @@ function generateRandomCandidates(
   return sortUniqueTimestamps(candidates);
 }
 
-function createRcCounts(rcSentToday: number): FeatureGateCounts {
-  return {
-    dreamsCreatedToday: 0,
-    audioPlaysLast7Days: 0,
-    audioPlaysToday: 0,
-    rcSentToday,
-    wbtbUsedLast7Days: 0,
-    drawingsPerDreamCount: 0,
-  };
-}
-
 function uniqueDayKeys(timestamps: readonly number[]): readonly string[] {
   return [...new Set(timestamps.map((timestamp) => toUtcDayKey(timestamp)))];
-}
-
-async function getLicenseTypeOrFree(licenseRepository: LicenseRepository): Promise<LicenseType> {
-  return (await licenseRepository.getCurrent()) ?? 'FREE';
 }
 
 export class ScheduleRealityChecksUseCase {
@@ -158,8 +136,18 @@ export class ScheduleRealityChecksUseCase {
     assertRealityCheckSettings(settings);
 
     const now = this.clock.now();
-    const licenseType = await getLicenseTypeOrFree(this.licenseRepository);
-    const maxRcPerDay = LICENSE_GATE_LIMITS[licenseType].rcPerDay;
+    const licenseType = await resolveLicenseTypeOrFree(this.licenseRepository);
+    const { maxRcPerDay } = await resolveFeatureGateFromLicenseAndCounts(
+      {
+        licenseRepository: this.licenseRepository,
+        clock: this.clock,
+      },
+      {},
+      {
+        evaluatedAt: now,
+        licenseType,
+      },
+    );
     const candidates =
       settings.mode === 'INTERVAL'
         ? generateIntervalCandidates(settings, now)
@@ -188,10 +176,18 @@ export class ScheduleRealityChecksUseCase {
         const accumulator = await accumulatorPromise;
         const dayKey = toUtcDayKey(timestamp);
         const currentCount = dailyCountsByDayKey.get(dayKey) ?? 0;
-        const decision = resolveFeatureGateDecision(
-          licenseType,
-          createRcCounts(currentCount),
-          createDayClock(timestamp),
+        const decision = await resolveFeatureGateFromLicenseAndCounts(
+          {
+            licenseRepository: this.licenseRepository,
+            clock: this.clock,
+          },
+          {
+            rcSentToday: currentCount,
+          },
+          {
+            evaluatedAt: timestamp,
+            licenseType,
+          },
         );
 
         if (!decision.canSendRC) {
