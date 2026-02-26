@@ -6,6 +6,7 @@ import {
   type AudioFilePath,
   type CsvFilePath,
   type DrawingFilePath,
+  type PdfFilePath,
   type StorageDirectoryUri,
   type StoragePaths,
   type StorageRootUri,
@@ -72,5 +73,9 @@ export function createStoredFilePath(
     return `${paths.drawingsDir}/${safeId}.png` as DrawingFilePath;
   }
 
-  return `${paths.exportsDir}/${safeId}.csv` as CsvFilePath;
+  if (kind === 'export') {
+    return `${paths.exportsDir}/${safeId}.csv` as CsvFilePath;
+  }
+
+  return `${paths.exportsDir}/${safeId}.pdf` as PdfFilePath;
 }

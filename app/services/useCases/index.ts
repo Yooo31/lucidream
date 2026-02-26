@@ -17,6 +17,15 @@ export {
   type ExportDreamsCsvResult,
 } from './ExportDreamsCsvUseCase';
 export {
+  ExportDreamsPdfUseCase,
+  createDreamJournalPdf,
+  type DreamPdfRecord,
+  type DreamPdfGenerator,
+  type DreamPdfGeneratorInput,
+  type DreamsPdfFileStore,
+  type ExportDreamsPdfResult,
+} from './ExportDreamsPdfUseCase';
+export {
   AddTagToDreamUseCase,
   type AddTagToDreamInput,
   type AddTagToDreamResult,

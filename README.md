@@ -52,7 +52,8 @@ e2e/
   Checks (mode random ou every X hours, active hours, notification text), plus alarme WBTB locale
   (apres N heures de sommeil, auto-stop en X secondes), persistes en SQLite avec scheduling local
   via `expo-notifications`; export CSV local du journal (`date,title,story,lucidity,quality,tags`)
-  disponible en licence `MEDIUM`/`PRO` uniquement
+  et export PDF local du journal (mise en page lisible) disponibles en licence `MEDIUM`/`PRO`
+  uniquement, avec ouverture/partage local du PDF exporte
 - ecran Pedia: `Oniri-Pedia` offline avec pages statiques `Index`, `WILD`, `MILD`, `SSILD`,
   recherche locale simple sur titres + contenu, et typographie optimisee pour lecture nocturne
 - modules faiblement couples et testables

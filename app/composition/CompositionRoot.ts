@@ -8,6 +8,7 @@ import {
   CreateTagUseCase,
   CreateDreamUseCase,
   ExportDreamsCsvUseCase,
+  ExportDreamsPdfUseCase,
   GetCurrentLicenseUseCase,
   GetRealityCheckSettingsUseCase,
   GetWbtbSettingsUseCase,
@@ -60,6 +61,7 @@ export interface AppUseCases {
   createDreamUseCase: CreateDreamUseCase;
   listDreamsUseCase: ListDreamsUseCase;
   exportDreamsCsvUseCase: ExportDreamsCsvUseCase;
+  exportDreamsPdfUseCase: ExportDreamsPdfUseCase;
   addTagToDreamUseCase: AddTagToDreamUseCase;
   searchTagsUseCase: SearchTagsUseCase;
   createTagUseCase: CreateTagUseCase;
@@ -155,6 +157,22 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
           fileStorage.save({
             id: fileId,
             kind: 'export',
+            content,
+            encoding: 'utf8',
+          }),
+      },
+    ),
+    exportDreamsPdfUseCase: new ExportDreamsPdfUseCase(
+      repositories.dreamRepository,
+      repositories.tagRepository,
+      repositories.licenseRepository,
+      repositories.usageLogRepository,
+      clock,
+      {
+        saveUtf8Pdf: async ({ fileId, content }) =>
+          fileStorage.save({
+            id: fileId,
+            kind: 'exportPdf',
             content,
             encoding: 'utf8',
           }),
