@@ -1,6 +1,22 @@
 import type { ComponentType, PropsWithChildren, ReactElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+jest.mock('../settings', () => {
+  const React = jest.requireActual('react');
+  const { Text, View } = jest.requireActual('react-native');
+
+  function SettingsScreen() {
+    return React.createElement(
+      View,
+      null,
+      React.createElement(Text, null, 'Settings screen'),
+      React.createElement(Text, null, 'Theme and sleep settings'),
+    );
+  }
+
+  return { SettingsScreen };
+});
+
 jest.mock('@react-navigation/native', () => {
   const React = jest.requireActual('react');
 
@@ -94,6 +110,6 @@ describe('AppNavigation', () => {
     expect(await screen.findByText('Pedia placeholder')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Settings'));
-    expect(await screen.findByText('Settings placeholder')).toBeTruthy();
+    expect(await screen.findByText('Settings screen')).toBeTruthy();
   });
 });

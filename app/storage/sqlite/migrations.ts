@@ -98,6 +98,15 @@ CREATE TABLE IF NOT EXISTS theme_settings (
 `,
     ],
   },
+  {
+    version: 4,
+    statements: [
+      `
+ALTER TABLE theme_settings
+ADD COLUMN auto_infrared_enabled INTEGER NOT NULL DEFAULT 1;
+`,
+    ],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;

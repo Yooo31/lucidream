@@ -7,6 +7,11 @@ export interface SleepWindow {
   endMinutes: number;
 }
 
+export interface ThemeSettings {
+  sleepWindow: SleepWindow;
+  autoInfraredEnabled: boolean;
+}
+
 export interface ThemePalette {
   background: string;
   textPrimary: string;
@@ -14,6 +19,14 @@ export interface ThemePalette {
 }
 
 const MINUTES_PER_DAY = 24 * 60;
+export const DEFAULT_SLEEP_WINDOW: SleepWindow = {
+  startMinutes: 23 * 60,
+  endMinutes: 7 * 60,
+};
+export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
+  sleepWindow: DEFAULT_SLEEP_WINDOW,
+  autoInfraredEnabled: true,
+};
 
 export function isValidMinuteOfDay(value: number): boolean {
   return Number.isInteger(value) && value >= 0 && value < MINUTES_PER_DAY;

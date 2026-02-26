@@ -58,6 +58,22 @@ describe('ThemeEngine', () => {
       }),
     ).toBe('dark');
   });
+
+  it('returns dark when auto infrared is disabled', () => {
+    const clock = new FakeClock(Date.parse('2026-02-26T23:30:00'));
+    const engine = new ThemeEngine(clock);
+    const sleepWindow: SleepWindow = {
+      startMinutes: 23 * 60,
+      endMinutes: 7 * 60,
+    };
+
+    expect(
+      engine.resolveActiveTheme({
+        sleepWindow,
+        autoInfraredEnabled: false,
+      }),
+    ).toBe('dark');
+  });
 });
 
 describe('isMinuteWithinSleepWindow', () => {

@@ -8,8 +8,10 @@ export type {
 export {
   AddTagToDreamUseCase,
   CreateDreamUseCase,
+  GetThemeSettingsUseCase,
   ListDreamsUseCase,
   RecordUsageLogUseCase,
+  SaveThemeSettingsUseCase,
   type AddTagToDreamInput,
   type AddTagToDreamResult,
   type CreateDreamInput,

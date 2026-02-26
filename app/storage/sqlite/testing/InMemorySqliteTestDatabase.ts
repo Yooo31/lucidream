@@ -51,6 +51,7 @@ interface ThemeSettingsRecord {
   id: number;
   sleep_start_minutes: number;
   sleep_end_minutes: number;
+  auto_infrared_enabled: number;
   rowid: number;
 }
 
@@ -377,13 +378,18 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
 
     if (
       sql ===
-      'INSERT INTO THEME_SETTINGS (ID, SLEEP_START_MINUTES, SLEEP_END_MINUTES) VALUES (1, ?, ?)'
+      'INSERT INTO THEME_SETTINGS (ID, SLEEP_START_MINUTES, SLEEP_END_MINUTES, AUTO_INFRARED_ENABLED) VALUES (1, ?, ?, ?)'
     ) {
-      const [sleepStartMinutes, sleepEndMinutes] = params as [number, number];
+      const [sleepStartMinutes, sleepEndMinutes, autoInfraredEnabled] = params as [
+        number,
+        number,
+        number,
+      ];
       this.state.themeSettings = {
         id: 1,
         sleep_start_minutes: sleepStartMinutes,
         sleep_end_minutes: sleepEndMinutes,
+        auto_infrared_enabled: autoInfraredEnabled,
         rowid: this.nextRowId(),
       };
       return undefined;
@@ -483,7 +489,10 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
       });
     }
 
-    if (sql === 'SELECT SLEEP_START_MINUTES, SLEEP_END_MINUTES FROM THEME_SETTINGS WHERE ID = 1') {
+    if (
+      sql ===
+      'SELECT SLEEP_START_MINUTES, SLEEP_END_MINUTES, AUTO_INFRARED_ENABLED FROM THEME_SETTINGS WHERE ID = 1'
+    ) {
       if (!this.state.themeSettings) {
         return null;
       }
@@ -491,6 +500,7 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
       return castRow<T>({
         sleep_start_minutes: this.state.themeSettings.sleep_start_minutes,
         sleep_end_minutes: this.state.themeSettings.sleep_end_minutes,
+        auto_infrared_enabled: this.state.themeSettings.auto_infrared_enabled,
       });
     }
 
