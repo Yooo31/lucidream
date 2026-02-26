@@ -31,6 +31,7 @@ export type AudioPlayerStatusCallback = (status: AudioPlayerStatus) => void;
 export interface AudioSound {
   setOnPlaybackStatusUpdate(callback: AudioPlayerStatusCallback | null): void;
   playAsync(): Promise<void>;
+  pauseAsync(): Promise<void>;
   stopAsync(): Promise<void>;
   unloadAsync(): Promise<void>;
 }

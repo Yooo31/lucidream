@@ -11,6 +11,7 @@ import type {
 interface MockAudioSound extends AudioSound {
   setOnPlaybackStatusUpdateMock: jest.Mock<void, [AudioPlayerStatusCallback | null]>;
   playAsyncMock: jest.Mock<Promise<void>, []>;
+  pauseAsyncMock: jest.Mock<Promise<void>, []>;
   stopAsyncMock: jest.Mock<Promise<void>, []>;
   unloadAsyncMock: jest.Mock<Promise<void>, []>;
 }
@@ -37,6 +38,7 @@ function createMockAudioRecording(): AudioRecording {
 function createMockAudioSound(): MockAudioSound {
   const setOnPlaybackStatusUpdateMock = jest.fn<void, [AudioPlayerStatusCallback | null]>();
   const playAsyncMock = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
+  const pauseAsyncMock = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
   const stopAsyncMock = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
   const unloadAsyncMock = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
 
@@ -44,10 +46,12 @@ function createMockAudioSound(): MockAudioSound {
     setOnPlaybackStatusUpdate: (callback: AudioPlayerStatusCallback | null) =>
       setOnPlaybackStatusUpdateMock(callback),
     playAsync: () => playAsyncMock(),
+    pauseAsync: () => pauseAsyncMock(),
     stopAsync: () => stopAsyncMock(),
     unloadAsync: () => unloadAsyncMock(),
     setOnPlaybackStatusUpdateMock,
     playAsyncMock,
+    pauseAsyncMock,
     stopAsyncMock,
     unloadAsyncMock,
   };
@@ -132,6 +136,20 @@ describe('AudioPlayer', () => {
     expect(secondSound.playAsyncMock).toHaveBeenCalledTimes(1);
   });
 
+  it('reuses loaded sound when replaying the same URI', async () => {
+    const sound = createMockAudioSound();
+    const audioModule = createMockAudioModule(sound);
+    const player = new AudioPlayer({ audioModule });
+
+    await player.play('file:///sandbox/same-uri.m4a');
+    await player.pause();
+    await player.play('file:///sandbox/same-uri.m4a');
+
+    expect(audioModule.createSoundAsyncMock).toHaveBeenCalledTimes(1);
+    expect(sound.pauseAsyncMock).toHaveBeenCalledTimes(1);
+    expect(sound.playAsyncMock).toHaveBeenCalledTimes(2);
+  });
+
   it('is a no-op when stop is called without an active sound', async () => {
     const sound = createMockAudioSound();
     const audioModule = createMockAudioModule(sound);
@@ -152,5 +170,18 @@ describe('AudioPlayer', () => {
     expect(sound.setOnPlaybackStatusUpdateMock).toHaveBeenCalledWith(null);
     expect(sound.stopAsyncMock).toHaveBeenCalledTimes(1);
     expect(sound.unloadAsyncMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('pauses active sound without unloading it', async () => {
+    const sound = createMockAudioSound();
+    const audioModule = createMockAudioModule(sound);
+    const player = new AudioPlayer({ audioModule });
+
+    await player.play('file:///sandbox/dream-pause.m4a');
+    await player.pause();
+
+    expect(sound.pauseAsyncMock).toHaveBeenCalledTimes(1);
+    expect(sound.stopAsyncMock).not.toHaveBeenCalled();
+    expect(sound.unloadAsyncMock).not.toHaveBeenCalled();
   });
 });

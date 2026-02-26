@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
-import type { Dream, Tag } from '../../domain';
+import { FakeClock, type Dream, type Tag } from '../../domain';
+import { PlayDreamAudioUseCase, type DreamAudioPlayer } from '../../services';
+import {
+  createDreamRepositoryMock,
+  createLicenseRepositoryMock,
+  createUsageLogRepositoryMock,
+} from '../../services/useCases/testing/createRepositoryMocks';
 import { THEME_PALETTES } from '../../theme';
 import { DreamDetailScreenView } from './DreamDetailScreen';
 
@@ -63,12 +69,44 @@ function createAudioControllers() {
       },
       decision: createAudioPlaybackDecision(),
     })),
+    pause: jest.fn(async () => undefined),
     stop: jest.fn(async () => undefined),
   };
 
   return {
     recordDreamAudioUseCase,
     playDreamAudioUseCase,
+  };
+}
+
+function createPlayUseCaseWithMockAudioPlayer() {
+  const dreamRepository = createDreamRepositoryMock();
+  const licenseRepository = createLicenseRepositoryMock('FREE');
+  const usageLogRepository = createUsageLogRepositoryMock();
+  const audioPlayer: jest.Mocked<DreamAudioPlayer> = {
+    play: jest.fn<Promise<void>, [string]>(async () => undefined),
+    pause: jest.fn<Promise<void>, []>(async () => undefined),
+    stop: jest.fn<Promise<void>, []>(async () => undefined),
+  };
+
+  dreamRepository.getById.mockResolvedValue({
+    ...BASE_DREAM,
+    audioPath: 'file:///sandbox/lucidream/audio/dream-1.m4a',
+  });
+
+  const playDreamAudioUseCase = new PlayDreamAudioUseCase(
+    dreamRepository,
+    licenseRepository,
+    usageLogRepository,
+    new FakeClock(Date.parse('2026-02-26T12:00:00.000Z')),
+    audioPlayer,
+    () => 'usage-log-audio-component-test',
+  );
+
+  return {
+    playDreamAudioUseCase,
+    audioPlayer,
+    usageLogRepository,
   };
 }
 
@@ -244,7 +282,7 @@ describe('DreamDetailScreenView', () => {
 
     await waitFor(() => {
       expect(recordDreamAudioUseCase.start).toHaveBeenCalledTimes(1);
-      expect(screen.getByText('Stop')).toBeTruthy();
+      expect(screen.getByTestId('dream-detail-audio-record-toggle')).toHaveTextContent('Stop');
     });
 
     fireEvent.press(screen.getByTestId('dream-detail-audio-record-toggle'));
@@ -307,6 +345,85 @@ describe('DreamDetailScreenView', () => {
         dreamId: BASE_DREAM.id,
       });
       expect(screen.getByText('Playback limit reached (1 per 7 days).')).toBeTruthy();
+      expect(screen.getByText('Plays remaining in 7 days: 0 of 1.')).toBeTruthy();
+    });
+  });
+
+  it('transitions play, pause, and stop with a mocked audio player', async () => {
+    const searchTagsUseCase = {
+      execute: jest.fn(async () => createSearchResult([])),
+    };
+    const createTagUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const addTagToDreamUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const listDreamTagsUseCase = {
+      execute: jest.fn(async () => ({
+        ok: true as const,
+        tags: [],
+      })),
+    };
+    const recordDreamAudioUseCase = {
+      start: jest.fn(async () => ({ ok: true as const })),
+      stopAndAttach: jest.fn(async () => ({ ok: false as const })),
+    };
+    const { playDreamAudioUseCase, audioPlayer, usageLogRepository } =
+      createPlayUseCaseWithMockAudioPlayer();
+
+    render(
+      <DreamDetailScreenView
+        activeThemePalette={THEME_PALETTES.dark}
+        dream={{
+          ...BASE_DREAM,
+          audioPath: 'file:///sandbox/lucidream/audio/dream-1.m4a',
+        }}
+        searchTagsUseCase={searchTagsUseCase}
+        createTagUseCase={createTagUseCase}
+        addTagToDreamUseCase={addTagToDreamUseCase}
+        listDreamTagsUseCase={listDreamTagsUseCase}
+        recordDreamAudioUseCase={recordDreamAudioUseCase}
+        playDreamAudioUseCase={playDreamAudioUseCase}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('dream-detail-audio-play-button'));
+
+    await waitFor(() => {
+      expect(audioPlayer.play).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('dream-detail-audio-playback-state')).toHaveTextContent(
+        'Playback state: Playing',
+      );
+      expect(usageLogRepository.create).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.press(screen.getByTestId('dream-detail-audio-pause-button'));
+
+    await waitFor(() => {
+      expect(audioPlayer.pause).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('dream-detail-audio-playback-state')).toHaveTextContent(
+        'Playback state: Paused',
+      );
+      expect(screen.getByText('Playback paused.')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('dream-detail-audio-play-button'));
+
+    await waitFor(() => {
+      expect(audioPlayer.play).toHaveBeenCalledTimes(2);
+      expect(usageLogRepository.create).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Playback resumed.')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('dream-detail-audio-stop-button'));
+
+    await waitFor(() => {
+      expect(audioPlayer.stop).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('dream-detail-audio-playback-state')).toHaveTextContent(
+        'Playback state: Idle',
+      );
+      expect(screen.getByText('Playback stopped.')).toBeTruthy();
     });
   });
 
@@ -351,6 +468,19 @@ describe('DreamDetailScreenView', () => {
         dreamId: BASE_DREAM.id,
       });
       expect(screen.getByText('Playback started.')).toBeTruthy();
+      expect(screen.getByTestId('dream-detail-audio-playback-state')).toHaveTextContent(
+        'Playback state: Playing',
+      );
+    });
+
+    fireEvent.press(screen.getByTestId('dream-detail-audio-stop-button'));
+
+    await waitFor(() => {
+      expect(playDreamAudioUseCase.stop).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Playback stopped.')).toBeTruthy();
+      expect(screen.getByTestId('dream-detail-audio-playback-state')).toHaveTextContent(
+        'Playback state: Idle',
+      );
     });
   });
 });

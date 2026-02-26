@@ -1,5 +1,4 @@
-import type { Dream } from '../../domain';
-import { FakeClock } from '../../domain';
+import { FakeClock, type Dream } from '../../domain';
 
 import { PlayDreamAudioUseCase, type DreamAudioPlayer } from './PlayDreamAudioUseCase';
 import {
@@ -11,6 +10,7 @@ import {
 function createAudioPlayerMock(): jest.Mocked<DreamAudioPlayer> {
   return {
     play: jest.fn<Promise<void>, [string]>(async () => undefined),
+    pause: jest.fn<Promise<void>, []>(async () => undefined),
     stop: jest.fn<Promise<void>, []>(async () => undefined),
   };
 }
@@ -147,5 +147,65 @@ describe('PlayDreamAudioUseCase', () => {
       type: 'AUDIO_PLAYED',
       createdAt: Date.parse('2026-02-26T12:00:00.000Z'),
     });
+  });
+
+  it('resumes paused playback without creating an additional AUDIO_PLAYED usage log', async () => {
+    const dreamRepository = createDreamRepositoryMock();
+    const licenseRepository = createLicenseRepositoryMock('FREE');
+    const usageLogRepository = createUsageLogRepositoryMock();
+    const audioPlayer = createAudioPlayerMock();
+
+    dreamRepository.getById.mockResolvedValue(DREAM_WITH_AUDIO);
+
+    const useCase = new PlayDreamAudioUseCase(
+      dreamRepository,
+      licenseRepository,
+      usageLogRepository,
+      new FakeClock(Date.parse('2026-02-26T12:00:00.000Z')),
+      audioPlayer,
+      () => 'usage-log-audio-4',
+    );
+
+    await useCase.execute({
+      dreamId: DREAM_WITH_AUDIO.id,
+    });
+    await useCase.pause();
+    await useCase.execute({
+      dreamId: DREAM_WITH_AUDIO.id,
+    });
+
+    expect(audioPlayer.play).toHaveBeenCalledTimes(2);
+    expect(audioPlayer.pause).toHaveBeenCalledTimes(1);
+    expect(usageLogRepository.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears playback session on stop so replay records usage again', async () => {
+    const dreamRepository = createDreamRepositoryMock();
+    const licenseRepository = createLicenseRepositoryMock('FREE');
+    const usageLogRepository = createUsageLogRepositoryMock();
+    const audioPlayer = createAudioPlayerMock();
+
+    dreamRepository.getById.mockResolvedValue(DREAM_WITH_AUDIO);
+
+    const useCase = new PlayDreamAudioUseCase(
+      dreamRepository,
+      licenseRepository,
+      usageLogRepository,
+      new FakeClock(Date.parse('2026-02-26T12:00:00.000Z')),
+      audioPlayer,
+      () => 'usage-log-audio-5',
+    );
+
+    await useCase.execute({
+      dreamId: DREAM_WITH_AUDIO.id,
+    });
+    await useCase.stop();
+    await useCase.execute({
+      dreamId: DREAM_WITH_AUDIO.id,
+    });
+
+    expect(audioPlayer.stop).toHaveBeenCalledTimes(1);
+    expect(audioPlayer.play).toHaveBeenCalledTimes(2);
+    expect(usageLogRepository.create).toHaveBeenCalledTimes(2);
   });
 });

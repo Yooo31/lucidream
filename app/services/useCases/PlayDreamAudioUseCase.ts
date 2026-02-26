@@ -9,6 +9,7 @@ import { RecordUsageLogUseCase, type UsageLogIdGenerator } from './RecordUsageLo
 
 export interface DreamAudioPlayer {
   play(uri: string): Promise<void>;
+  pause(): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -55,6 +56,12 @@ export class PlayDreamAudioUseCase {
 
   private readonly recordUsageLogUseCase: RecordUsageLogUseCase;
 
+  private activePlayback: {
+    dreamId: string;
+    audioPath: string;
+    isPaused: boolean;
+  } | null = null;
+
   constructor(
     private readonly dreamRepository: DreamRepository,
     licenseRepository: LicenseRepository,
@@ -94,6 +101,44 @@ export class PlayDreamAudioUseCase {
       };
     }
 
+    const { activePlayback } = this;
+    const hasActivePlayback =
+      activePlayback !== null &&
+      activePlayback.dreamId === dream.id &&
+      activePlayback.audioPath === dream.audioPath;
+
+    if (hasActivePlayback && activePlayback) {
+      if (!activePlayback.isPaused) {
+        return {
+          ok: true,
+          dream,
+          decision: await resolveFeatureGateFromRepositories(this.featureGateDependencies),
+        };
+      }
+
+      try {
+        await this.audioPlayer.play(dream.audioPath);
+      } catch {
+        this.activePlayback = null;
+        return {
+          ok: false,
+          code: 'PLAYBACK_FAILED',
+        };
+      }
+
+      this.activePlayback = {
+        dreamId: activePlayback.dreamId,
+        audioPath: activePlayback.audioPath,
+        isPaused: false,
+      };
+
+      return {
+        ok: true,
+        dream,
+        decision: await resolveFeatureGateFromRepositories(this.featureGateDependencies),
+      };
+    }
+
     const decision = await resolveFeatureGateFromRepositories(this.featureGateDependencies);
 
     if (!decision.canPlayAudio) {
@@ -107,6 +152,7 @@ export class PlayDreamAudioUseCase {
     try {
       await this.audioPlayer.play(dream.audioPath);
     } catch {
+      this.activePlayback = null;
       return {
         ok: false,
         code: 'PLAYBACK_FAILED',
@@ -121,6 +167,12 @@ export class PlayDreamAudioUseCase {
       throw new Error('RecordUsageLogUseCase returned a validation error after audio playback.');
     }
 
+    this.activePlayback = {
+      dreamId: dream.id,
+      audioPath: dream.audioPath,
+      isPaused: false,
+    };
+
     return {
       ok: true,
       dream,
@@ -128,7 +180,20 @@ export class PlayDreamAudioUseCase {
     };
   }
 
+  async pause(): Promise<void> {
+    if (!this.activePlayback || this.activePlayback.isPaused) {
+      return;
+    }
+
+    await this.audioPlayer.pause();
+    this.activePlayback = {
+      ...this.activePlayback,
+      isPaused: true,
+    };
+  }
+
   async stop(): Promise<void> {
     await this.audioPlayer.stop();
+    this.activePlayback = null;
   }
 }

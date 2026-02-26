@@ -56,8 +56,11 @@ interface DreamAudioPlayerController {
       maxAudioPlaysPerDay: number | null;
     };
   }>;
+  pause(): Promise<void>;
   stop(): Promise<void>;
 }
+
+type AudioPlaybackState = 'IDLE' | 'PLAYING' | 'PAUSED';
 
 const TAG_TYPE_OPTIONS: ReadonlyArray<{ type: TagType; label: string }> = [
   { type: 'CHARACTER', label: 'Character' },
@@ -79,6 +82,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  audioControlsRow: {
+    flexDirection: 'row',
+    marginTop: 10,
+  },
+  audioPlaybackStateText: {
+    fontSize: 12,
+    marginTop: 8,
+  },
+  audioSecondaryButton: {
+    marginLeft: 8,
+    marginTop: 0,
   },
   backButton: {
     alignSelf: 'flex-start',
@@ -260,6 +275,33 @@ function toAudioPlaybackLimitMessage(decision: {
   return 'Audio playback is currently unavailable.';
 }
 
+function toAudioPlaysRemainingMessage(decision: {
+  maxAudioPlaysLast7Days: number | null;
+  maxAudioPlaysPerDay: number | null;
+}): string {
+  if (decision.maxAudioPlaysPerDay !== null) {
+    return `Plays remaining today: 0 of ${decision.maxAudioPlaysPerDay}.`;
+  }
+
+  if (decision.maxAudioPlaysLast7Days !== null) {
+    return `Plays remaining in 7 days: 0 of ${decision.maxAudioPlaysLast7Days}.`;
+  }
+
+  return 'Plays remaining: unavailable.';
+}
+
+function toAudioPlaybackStateLabel(state: AudioPlaybackState): string {
+  if (state === 'PLAYING') {
+    return 'Playing';
+  }
+
+  if (state === 'PAUSED') {
+    return 'Paused';
+  }
+
+  return 'Idle';
+}
+
 function toFileName(path: string): string {
   const normalizedPath = path.trim();
   const segments = normalizedPath.split('/');
@@ -304,12 +346,14 @@ export function DreamDetailScreenView({
   const [audioErrorMessage, setAudioErrorMessage] = useState<string | null>(null);
   const [audioStatusMessage, setAudioStatusMessage] = useState<string | null>(null);
   const [isAudioSubmitting, setIsAudioSubmitting] = useState(false);
+  const [audioPlaybackState, setAudioPlaybackState] = useState<AudioPlaybackState>('IDLE');
 
   const lucidityScore = inferLucidityScore(localDream.quality);
   const normalizedSearchQuery = useMemo(() => normalizeTagName(searchQuery), [searchQuery]);
 
   useEffect(() => {
     setLocalDream(dream);
+    setAudioPlaybackState('IDLE');
   }, [dream]);
 
   useEffect(
@@ -498,6 +542,11 @@ export function DreamDetailScreenView({
 
     try {
       if (!isRecording) {
+        if (audioPlaybackState !== 'IDLE') {
+          await playDreamAudioUseCase.stop();
+          setAudioPlaybackState('IDLE');
+        }
+
         const startResult = await recordDreamAudioUseCase.start();
 
         if (!startResult.ok) {
@@ -544,9 +593,11 @@ export function DreamDetailScreenView({
   };
 
   const handlePlayAudio = async () => {
-    if (isAudioSubmitting || !localDream.audioPath) {
+    if (isAudioSubmitting || !localDream.audioPath || audioPlaybackState === 'PLAYING') {
       return;
     }
+
+    const wasPaused = audioPlaybackState === 'PAUSED';
 
     setIsAudioSubmitting(true);
     setAudioErrorMessage(null);
@@ -558,8 +609,11 @@ export function DreamDetailScreenView({
       });
 
       if (!result.ok) {
+        setAudioPlaybackState('IDLE');
+
         if (result.code === 'PLAYBACK_QUOTA_REACHED' && result.decision) {
           setAudioErrorMessage(toAudioPlaybackLimitMessage(result.decision));
+          setAudioStatusMessage(toAudioPlaysRemainingMessage(result.decision));
           return;
         }
 
@@ -572,7 +626,48 @@ export function DreamDetailScreenView({
         return;
       }
 
-      setAudioStatusMessage('Playback started.');
+      setAudioPlaybackState('PLAYING');
+      setAudioStatusMessage(wasPaused ? 'Playback resumed.' : 'Playback started.');
+    } finally {
+      setIsAudioSubmitting(false);
+    }
+  };
+
+  const handlePauseAudio = async () => {
+    if (isAudioSubmitting || audioPlaybackState !== 'PLAYING') {
+      return;
+    }
+
+    setIsAudioSubmitting(true);
+    setAudioErrorMessage(null);
+    setAudioStatusMessage(null);
+
+    try {
+      await playDreamAudioUseCase.pause();
+      setAudioPlaybackState('PAUSED');
+      setAudioStatusMessage('Playback paused.');
+    } catch {
+      setAudioErrorMessage('Unable to pause attached audio.');
+    } finally {
+      setIsAudioSubmitting(false);
+    }
+  };
+
+  const handleStopAudio = async () => {
+    if (isAudioSubmitting || audioPlaybackState === 'IDLE') {
+      return;
+    }
+
+    setIsAudioSubmitting(true);
+    setAudioErrorMessage(null);
+    setAudioStatusMessage(null);
+
+    try {
+      await playDreamAudioUseCase.stop();
+      setAudioPlaybackState('IDLE');
+      setAudioStatusMessage('Playback stopped.');
+    } catch {
+      setAudioErrorMessage('Unable to stop attached audio.');
     } finally {
       setIsAudioSubmitting(false);
     }
@@ -856,25 +951,87 @@ export function DreamDetailScreenView({
             {isRecording ? 'Stop' : 'Record'}
           </Text>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            handlePlayAudio().catch(() => undefined);
-          }}
-          style={[
-            styles.audioButton,
-            {
-              borderColor: activeThemePalette.textSecondary,
-              backgroundColor: localDream.audioPath ? '#121212' : '#0F0F0F',
-              opacity: localDream.audioPath ? 1 : 0.55,
-            },
-          ]}
-          testID="dream-detail-audio-play-button"
+        <View style={styles.audioControlsRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: !localDream.audioPath || audioPlaybackState === 'PLAYING',
+            }}
+            onPress={() => {
+              handlePlayAudio().catch(() => undefined);
+            }}
+            style={[
+              styles.audioButton,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                backgroundColor:
+                  localDream.audioPath && audioPlaybackState !== 'PLAYING' ? '#121212' : '#0F0F0F',
+                opacity: localDream.audioPath && audioPlaybackState !== 'PLAYING' ? 1 : 0.55,
+                flex: 1,
+                marginTop: 0,
+              },
+            ]}
+            testID="dream-detail-audio-play-button"
+          >
+            <Text style={[styles.audioButtonText, { color: activeThemePalette.textPrimary }]}>
+              Play
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: audioPlaybackState !== 'PLAYING',
+            }}
+            onPress={() => {
+              handlePauseAudio().catch(() => undefined);
+            }}
+            style={[
+              styles.audioButton,
+              styles.audioSecondaryButton,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                backgroundColor: audioPlaybackState === 'PLAYING' ? '#121212' : '#0F0F0F',
+                opacity: audioPlaybackState === 'PLAYING' ? 1 : 0.55,
+                flex: 1,
+              },
+            ]}
+            testID="dream-detail-audio-pause-button"
+          >
+            <Text style={[styles.audioButtonText, { color: activeThemePalette.textPrimary }]}>
+              Pause
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: audioPlaybackState === 'IDLE',
+            }}
+            onPress={() => {
+              handleStopAudio().catch(() => undefined);
+            }}
+            style={[
+              styles.audioButton,
+              styles.audioSecondaryButton,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                backgroundColor: audioPlaybackState === 'IDLE' ? '#0F0F0F' : '#121212',
+                opacity: audioPlaybackState === 'IDLE' ? 0.55 : 1,
+                flex: 1,
+              },
+            ]}
+            testID="dream-detail-audio-stop-button"
+          >
+            <Text style={[styles.audioButtonText, { color: activeThemePalette.textPrimary }]}>
+              Stop
+            </Text>
+          </Pressable>
+        </View>
+        <Text
+          style={[styles.audioPlaybackStateText, { color: activeThemePalette.textSecondary }]}
+          testID="dream-detail-audio-playback-state"
         >
-          <Text style={[styles.audioButtonText, { color: activeThemePalette.textPrimary }]}>
-            Play attached audio
-          </Text>
-        </Pressable>
+          Playback state: {toAudioPlaybackStateLabel(audioPlaybackState)}
+        </Text>
         {audioErrorMessage ? <Text style={styles.errorText}>{audioErrorMessage}</Text> : null}
         {audioStatusMessage ? <Text style={styles.infoText}>{audioStatusMessage}</Text> : null}
       </View>
