@@ -57,6 +57,7 @@
   },
   "dependencies": {
     "expo": "latest",
+    "expo-sqlite": "latest",
     "expo-status-bar": "latest",
     "react": "latest",
     "react-native": "latest"
