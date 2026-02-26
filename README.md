@@ -18,6 +18,7 @@ Base technique professionnelle pour une application mobile Expo/React Native ori
 
 ```text
 app/
+  infra/
   features/
   components/
   services/
