@@ -10,6 +10,9 @@ importers:
       expo:
         specifier: latest
         version: 55.0.2(@babel/core@7.29.0)(@expo/dom-webview@55.0.3)(react-native@0.84.0(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)(typescript@5.5.4)
+      expo-file-system:
+        specifier: latest
+        version: 55.0.9(expo@55.0.2)(react-native@0.84.0(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))
       expo-sqlite:
         specifier: latest
         version: 55.0.10(expo@55.0.2)(react-native@0.84.0(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
