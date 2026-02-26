@@ -1,5 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
+import { DEFAULT_REALITY_CHECK_SETTINGS, FakeClock, type RealityCheckSettings } from '../../domain';
+import {
+  SaveRealityCheckSettingsUseCase,
+  ScheduleRealityChecksUseCase,
+  type RealityCheckNotificationsClient,
+} from '../../services';
+import {
+  createLicenseRepositoryMock,
+  createRealityCheckSettingsRepositoryMock,
+  createUsageLogRepositoryMock,
+} from '../../services/useCases/testing/createRepositoryMocks';
 import { THEME_PALETTES, type ThemeSettings } from '../../theme';
 import { SettingsScreenView } from './SettingsScreen';
 
@@ -15,6 +26,32 @@ function createThemeSettingsWriter() {
   };
 }
 
+function createRealityCheckSettingsReader(settings: RealityCheckSettings) {
+  return {
+    execute: jest.fn(async () => settings),
+  };
+}
+
+function createRealityCheckSettingsWriter() {
+  return {
+    execute: jest.fn(async () => ({
+      scheduledCount: 3,
+      skippedByQuotaCount: 0,
+      maxRcPerDay: 3,
+    })),
+  };
+}
+
+function createNotificationsClientMock(): jest.Mocked<RealityCheckNotificationsClient> {
+  return {
+    scheduleNotification: jest.fn<
+      Promise<string>,
+      [Parameters<RealityCheckNotificationsClient['scheduleNotification']>[0]]
+    >(async () => 'notification-id-1'),
+    cancelAll: jest.fn(async () => undefined),
+  };
+}
+
 describe('SettingsScreenView', () => {
   const initialSettings: ThemeSettings = {
     sleepWindow: {
@@ -24,7 +61,16 @@ describe('SettingsScreenView', () => {
     autoInfraredEnabled: true,
   };
 
-  it('loads settings and persists form values through save use-case', async () => {
+  const initialRealityCheckSettings: RealityCheckSettings = {
+    mode: 'RANDOM',
+    activeWindow: {
+      startMinutes: 9 * 60,
+      endMinutes: 22 * 60,
+    },
+    notificationText: 'Reality check: Am I dreaming right now?',
+  };
+
+  it('loads settings and persists form values through save use-cases', async () => {
     const loadedSettings: ThemeSettings = {
       sleepWindow: {
         startMinutes: 21 * 60 + 30,
@@ -32,8 +78,21 @@ describe('SettingsScreenView', () => {
       },
       autoInfraredEnabled: true,
     };
+    const loadedRealityCheckSettings: RealityCheckSettings = {
+      mode: 'INTERVAL',
+      intervalHours: 4,
+      activeWindow: {
+        startMinutes: 8 * 60,
+        endMinutes: 20 * 60,
+      },
+      notificationText: 'Am I dreaming?',
+    };
     const loadThemeSettingsUseCase = createThemeSettingsReader(loadedSettings);
     const saveThemeSettingsUseCase = createThemeSettingsWriter();
+    const loadRealityCheckSettingsUseCase = createRealityCheckSettingsReader(
+      loadedRealityCheckSettings,
+    );
+    const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
     const onApplyThemeSettings = jest.fn<void, [ThemeSettings]>();
 
     render(
@@ -41,21 +100,34 @@ describe('SettingsScreenView', () => {
         activeThemeName="dark"
         activeThemePalette={THEME_PALETTES.dark}
         initialSettings={initialSettings}
+        initialRealityCheckSettings={initialRealityCheckSettings}
         loadThemeSettingsUseCase={loadThemeSettingsUseCase}
-        onApplyThemeSettings={onApplyThemeSettings}
         saveThemeSettingsUseCase={saveThemeSettingsUseCase}
+        loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
+        saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        onApplyThemeSettings={onApplyThemeSettings}
       />,
     );
 
     await waitFor(() => {
       expect(loadThemeSettingsUseCase.execute).toHaveBeenCalledTimes(1);
+      expect(loadRealityCheckSettingsUseCase.execute).toHaveBeenCalledTimes(1);
       expect(screen.getByDisplayValue('21:30')).toBeTruthy();
       expect(screen.getByDisplayValue('06:15')).toBeTruthy();
+      expect(screen.getByDisplayValue('4')).toBeTruthy();
+      expect(screen.getByDisplayValue('08:00')).toBeTruthy();
+      expect(screen.getByDisplayValue('20:00')).toBeTruthy();
+      expect(screen.getByDisplayValue('Am I dreaming?')).toBeTruthy();
     });
 
     fireEvent.changeText(screen.getByTestId('settings-sleep-start-input'), '22:10');
     fireEvent.changeText(screen.getByTestId('settings-sleep-end-input'), '05:40');
     fireEvent(screen.getByTestId('settings-auto-infrared-switch'), 'valueChange', false);
+    fireEvent.press(screen.getByTestId('settings-rc-mode-interval-button'));
+    fireEvent.changeText(screen.getByTestId('settings-rc-interval-input'), '6');
+    fireEvent.changeText(screen.getByTestId('settings-rc-active-start-input'), '07:00');
+    fireEvent.changeText(screen.getByTestId('settings-rc-active-end-input'), '19:00');
+    fireEvent.changeText(screen.getByTestId('settings-rc-text-input'), 'Reality check now.');
     fireEvent.press(screen.getByTestId('settings-save-button'));
 
     await waitFor(() => {
@@ -65,6 +137,15 @@ describe('SettingsScreenView', () => {
           endMinutes: 5 * 60 + 40,
         },
         autoInfraredEnabled: false,
+      });
+      expect(saveRealityCheckSettingsUseCase.execute).toHaveBeenCalledWith({
+        mode: 'INTERVAL',
+        intervalHours: 6,
+        activeWindow: {
+          startMinutes: 7 * 60,
+          endMinutes: 19 * 60,
+        },
+        notificationText: 'Reality check now.',
       });
     });
     expect(onApplyThemeSettings).toHaveBeenCalledWith({
@@ -80,15 +161,22 @@ describe('SettingsScreenView', () => {
   it('shows validation error and skips persistence when times are invalid', async () => {
     const loadThemeSettingsUseCase = createThemeSettingsReader(initialSettings);
     const saveThemeSettingsUseCase = createThemeSettingsWriter();
+    const loadRealityCheckSettingsUseCase = createRealityCheckSettingsReader(
+      initialRealityCheckSettings,
+    );
+    const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
 
     render(
       <SettingsScreenView
         activeThemeName="dark"
         activeThemePalette={THEME_PALETTES.dark}
         initialSettings={initialSettings}
+        initialRealityCheckSettings={initialRealityCheckSettings}
         loadThemeSettingsUseCase={loadThemeSettingsUseCase}
-        onApplyThemeSettings={jest.fn()}
         saveThemeSettingsUseCase={saveThemeSettingsUseCase}
+        loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
+        saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        onApplyThemeSettings={jest.fn()}
       />,
     );
 
@@ -101,5 +189,75 @@ describe('SettingsScreenView', () => {
       );
     });
     expect(saveThemeSettingsUseCase.execute).not.toHaveBeenCalled();
+    expect(saveRealityCheckSettingsUseCase.execute).not.toHaveBeenCalled();
+  });
+
+  it('schedules notifications when saving reality check settings', async () => {
+    const loadThemeSettingsUseCase = createThemeSettingsReader(initialSettings);
+    const saveThemeSettingsUseCase = createThemeSettingsWriter();
+    const loadRealityCheckSettingsUseCase = createRealityCheckSettingsReader({
+      ...DEFAULT_REALITY_CHECK_SETTINGS,
+      mode: 'INTERVAL',
+      intervalHours: 4,
+      activeWindow: {
+        startMinutes: 0,
+        endMinutes: 0,
+      },
+    });
+    const notificationsClient = createNotificationsClientMock();
+    const clock = new FakeClock(Date.parse('2026-02-26T10:00:00.000Z'));
+    const usageLogRepository = createUsageLogRepositoryMock();
+    const licenseRepository = createLicenseRepositoryMock('FREE');
+    const settingsRepository = createRealityCheckSettingsRepositoryMock();
+    const scheduleRealityChecksUseCase = new ScheduleRealityChecksUseCase(
+      notificationsClient,
+      usageLogRepository,
+      licenseRepository,
+      clock,
+      () => 0.5,
+    );
+    const saveRealityCheckSettingsUseCase = new SaveRealityCheckSettingsUseCase(
+      settingsRepository,
+      scheduleRealityChecksUseCase,
+    );
+
+    render(
+      <SettingsScreenView
+        activeThemeName="dark"
+        activeThemePalette={THEME_PALETTES.dark}
+        initialSettings={initialSettings}
+        initialRealityCheckSettings={initialRealityCheckSettings}
+        loadThemeSettingsUseCase={loadThemeSettingsUseCase}
+        saveThemeSettingsUseCase={saveThemeSettingsUseCase}
+        loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
+        saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        onApplyThemeSettings={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(loadRealityCheckSettingsUseCase.execute).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.press(screen.getByTestId('settings-rc-mode-interval-button'));
+    fireEvent.changeText(screen.getByTestId('settings-rc-interval-input'), '6');
+    fireEvent.changeText(screen.getByTestId('settings-rc-active-start-input'), '00:00');
+    fireEvent.changeText(screen.getByTestId('settings-rc-active-end-input'), '00:00');
+    fireEvent.changeText(screen.getByTestId('settings-rc-text-input'), 'Reality check now.');
+    fireEvent.press(screen.getByTestId('settings-save-button'));
+
+    await waitFor(() => {
+      expect(notificationsClient.scheduleNotification).toHaveBeenCalled();
+    });
+    expect(settingsRepository.saveRealityCheckSettings).toHaveBeenCalledWith({
+      mode: 'INTERVAL',
+      intervalHours: 6,
+      activeWindow: {
+        startMinutes: 0,
+        endMinutes: 0,
+      },
+      notificationText: 'Reality check now.',
+    });
+    expect(usageLogRepository.create).toHaveBeenCalled();
   });
 });

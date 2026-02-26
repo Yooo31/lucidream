@@ -1,11 +1,13 @@
 import { SystemClock, type Clock } from '../domain';
 import { AudioPlayer, AudioRecorder } from '../infra/audio';
+import { ExpoNotificationsClient } from '../infra/notifications';
 import type { ThemeSettingsRepository } from '../theme/ThemeSettingsRepository';
 import {
   AddTagToDreamUseCase,
   DeleteDreamAssetUseCase,
   CreateTagUseCase,
   CreateDreamUseCase,
+  GetRealityCheckSettingsUseCase,
   GetThemeSettingsUseCase,
   ListDreamAssetsUseCase,
   ListDreamTagsUseCase,
@@ -14,10 +16,13 @@ import {
   RecordUsageLogUseCase,
   RecordDreamAudioUseCase,
   SaveDreamDrawingUseCase,
+  SaveRealityCheckSettingsUseCase,
   SaveThemeSettingsUseCase,
+  ScheduleRealityChecksUseCase,
   SearchTagsUseCase,
   type DreamRepository,
   type LicenseRepository,
+  type RealityCheckSettingsRepository,
   type TagRepository,
   type UsageLogRepository,
 } from '../services';
@@ -26,6 +31,7 @@ import {
   initializeDatabase as initializeSqliteDatabase,
   SqliteDreamRepository,
   SqliteLicenseRepository,
+  SqliteRealityCheckSettingsRepository,
   SqliteTagRepository,
   SqliteThemeSettingsRepository,
   SqliteUsageLogRepository,
@@ -38,6 +44,7 @@ export interface AppRepositories {
   usageLogRepository: UsageLogRepository;
   licenseRepository: LicenseRepository;
   themeSettingsRepository: ThemeSettingsRepository;
+  realityCheckSettingsRepository: RealityCheckSettingsRepository;
 }
 
 export interface AppUseCases {
@@ -53,6 +60,8 @@ export interface AppUseCases {
   recordDreamAudioUseCase: RecordDreamAudioUseCase;
   playDreamAudioUseCase: PlayDreamAudioUseCase;
   saveDreamDrawingUseCase: SaveDreamDrawingUseCase;
+  getRealityCheckSettingsUseCase: GetRealityCheckSettingsUseCase;
+  saveRealityCheckSettingsUseCase: SaveRealityCheckSettingsUseCase;
   getThemeSettingsUseCase: GetThemeSettingsUseCase;
   saveThemeSettingsUseCase: SaveThemeSettingsUseCase;
 }
@@ -82,6 +91,7 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
   const clock = dependencies.clock ?? new SystemClock();
   const audioRecorder = new AudioRecorder();
   const audioPlayer = new AudioPlayer();
+  const notificationsClient = new ExpoNotificationsClient();
   const fileStorage = new ExpoFileStorage();
 
   const repositories: AppRepositories = {
@@ -90,7 +100,15 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
     usageLogRepository: new SqliteUsageLogRepository(database),
     licenseRepository: new SqliteLicenseRepository(database),
     themeSettingsRepository: new SqliteThemeSettingsRepository(database),
+    realityCheckSettingsRepository: new SqliteRealityCheckSettingsRepository(database),
   };
+
+  const scheduleRealityChecksUseCase = new ScheduleRealityChecksUseCase(
+    notificationsClient,
+    repositories.usageLogRepository,
+    repositories.licenseRepository,
+    clock,
+  );
 
   const useCases: AppUseCases = {
     createDreamUseCase: new CreateDreamUseCase(
@@ -154,6 +172,13 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
             encoding: 'base64',
           }),
       },
+    ),
+    getRealityCheckSettingsUseCase: new GetRealityCheckSettingsUseCase(
+      repositories.realityCheckSettingsRepository,
+    ),
+    saveRealityCheckSettingsUseCase: new SaveRealityCheckSettingsUseCase(
+      repositories.realityCheckSettingsRepository,
+      scheduleRealityChecksUseCase,
     ),
     getThemeSettingsUseCase: new GetThemeSettingsUseCase(repositories.themeSettingsRepository),
     saveThemeSettingsUseCase: new SaveThemeSettingsUseCase(repositories.themeSettingsRepository),

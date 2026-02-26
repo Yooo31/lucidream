@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
+import {
+  DEFAULT_REALITY_CHECK_SETTINGS,
+  type RealityCheckMode,
+  type RealityCheckSettings,
+} from '../../domain';
 import { useCompositionRoot } from '../../composition';
 import {
   THEME_PALETTES,
@@ -18,12 +23,29 @@ interface ThemeSettingsWriter {
   execute(settings: ThemeSettings): Promise<void>;
 }
 
+interface RealityCheckSettingsReader {
+  execute(): Promise<RealityCheckSettings>;
+}
+
+interface SaveRealityCheckSettingsResult {
+  scheduledCount: number;
+  skippedByQuotaCount: number;
+  maxRcPerDay: number | null;
+}
+
+interface RealityCheckSettingsWriter {
+  execute(settings: RealityCheckSettings): Promise<SaveRealityCheckSettingsResult>;
+}
+
 export interface SettingsScreenViewProps {
   initialSettings: ThemeSettings;
+  initialRealityCheckSettings: RealityCheckSettings;
   activeThemeName: ThemeName;
   activeThemePalette: ThemePalette;
   loadThemeSettingsUseCase: ThemeSettingsReader;
   saveThemeSettingsUseCase: ThemeSettingsWriter;
+  loadRealityCheckSettingsUseCase: RealityCheckSettingsReader;
+  saveRealityCheckSettingsUseCase: RealityCheckSettingsWriter;
   onApplyThemeSettings: (settings: ThemeSettings) => void;
 }
 
@@ -49,6 +71,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     height: 44,
     paddingHorizontal: 12,
+  },
+  modeButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    marginHorizontal: 4,
+    minWidth: 120,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  modeButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  modeButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
   },
   previewButton: {
     borderRadius: 8,
@@ -116,6 +157,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 10,
   },
+  textArea: {
+    borderRadius: 10,
+    borderWidth: 1,
+    fontSize: 16,
+    minHeight: 88,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    textAlignVertical: 'top',
+  },
   title: {
     fontSize: 24,
     fontWeight: '700',
@@ -146,12 +196,54 @@ function parseTimeInput(value: string): number | null {
   return Number.parseInt(hours, 10) * 60 + Number.parseInt(minutes, 10);
 }
 
+function formatRealityCheckIntervalHours(settings: RealityCheckSettings): string {
+  if (settings.mode === 'INTERVAL') {
+    return settings.intervalHours.toString();
+  }
+
+  return '';
+}
+
+function parseIntervalHours(value: string): number | null {
+  if (value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value.trim(), 10);
+
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function getSaveSuccessMessage(result: SaveRealityCheckSettingsResult): string {
+  const quotaLabel =
+    result.maxRcPerDay === null ? 'unlimited daily quota' : `daily quota ${result.maxRcPerDay}`;
+
+  if (result.skippedByQuotaCount > 0) {
+    return [
+      `Settings saved locally. Scheduled ${result.scheduledCount} reality checks`,
+      `(${quotaLabel}; ${result.skippedByQuotaCount} skipped by quota).`,
+    ].join(' ');
+  }
+
+  return [
+    `Settings saved locally. Scheduled ${result.scheduledCount} reality checks`,
+    `(${quotaLabel}).`,
+  ].join(' ');
+}
+
 export function SettingsScreenView({
   initialSettings,
+  initialRealityCheckSettings,
   activeThemeName,
   activeThemePalette,
   loadThemeSettingsUseCase,
   saveThemeSettingsUseCase,
+  loadRealityCheckSettingsUseCase,
+  saveRealityCheckSettingsUseCase,
   onApplyThemeSettings,
 }: SettingsScreenViewProps) {
   const [sleepStart, setSleepStart] = useState<string>(
@@ -162,6 +254,19 @@ export function SettingsScreenView({
   );
   const [autoInfraredEnabled, setAutoInfraredEnabled] = useState<boolean>(
     initialSettings.autoInfraredEnabled,
+  );
+  const [rcMode, setRcMode] = useState<RealityCheckMode>(initialRealityCheckSettings.mode);
+  const [rcIntervalHours, setRcIntervalHours] = useState<string>(
+    formatRealityCheckIntervalHours(initialRealityCheckSettings),
+  );
+  const [rcActiveStart, setRcActiveStart] = useState<string>(
+    formatMinuteOfDay(initialRealityCheckSettings.activeWindow.startMinutes),
+  );
+  const [rcActiveEnd, setRcActiveEnd] = useState<string>(
+    formatMinuteOfDay(initialRealityCheckSettings.activeWindow.endMinutes),
+  );
+  const [rcNotificationText, setRcNotificationText] = useState<string>(
+    initialRealityCheckSettings.notificationText,
   );
   const [previewThemeName, setPreviewThemeName] = useState<ThemeName>(activeThemeName);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -179,36 +284,49 @@ export function SettingsScreenView({
   ]);
 
   useEffect(() => {
+    setRcMode(initialRealityCheckSettings.mode);
+    setRcIntervalHours(formatRealityCheckIntervalHours(initialRealityCheckSettings));
+    setRcActiveStart(formatMinuteOfDay(initialRealityCheckSettings.activeWindow.startMinutes));
+    setRcActiveEnd(formatMinuteOfDay(initialRealityCheckSettings.activeWindow.endMinutes));
+    setRcNotificationText(initialRealityCheckSettings.notificationText);
+  }, [initialRealityCheckSettings]);
+
+  useEffect(() => {
     setPreviewThemeName(activeThemeName);
   }, [activeThemeName]);
 
   useEffect(() => {
     let isMounted = true;
 
-    loadThemeSettingsUseCase
-      .execute()
-      .then((storedSettings) => {
+    Promise.all([loadThemeSettingsUseCase.execute(), loadRealityCheckSettingsUseCase.execute()])
+      .then(([storedThemeSettings, storedRealityCheckSettings]) => {
         if (!isMounted) {
           return;
         }
 
-        setSleepStart(formatMinuteOfDay(storedSettings.sleepWindow.startMinutes));
-        setSleepEnd(formatMinuteOfDay(storedSettings.sleepWindow.endMinutes));
-        setAutoInfraredEnabled(storedSettings.autoInfraredEnabled);
-        onApplyThemeSettings(storedSettings);
+        setSleepStart(formatMinuteOfDay(storedThemeSettings.sleepWindow.startMinutes));
+        setSleepEnd(formatMinuteOfDay(storedThemeSettings.sleepWindow.endMinutes));
+        setAutoInfraredEnabled(storedThemeSettings.autoInfraredEnabled);
+        onApplyThemeSettings(storedThemeSettings);
+
+        setRcMode(storedRealityCheckSettings.mode);
+        setRcIntervalHours(formatRealityCheckIntervalHours(storedRealityCheckSettings));
+        setRcActiveStart(formatMinuteOfDay(storedRealityCheckSettings.activeWindow.startMinutes));
+        setRcActiveEnd(formatMinuteOfDay(storedRealityCheckSettings.activeWindow.endMinutes));
+        setRcNotificationText(storedRealityCheckSettings.notificationText);
       })
       .catch(() => {
         if (!isMounted) {
           return;
         }
 
-        setErrorMessage('Unable to load theme settings from local storage.');
+        setErrorMessage('Unable to load settings from local storage.');
       });
 
     return () => {
       isMounted = false;
     };
-  }, [loadThemeSettingsUseCase, onApplyThemeSettings]);
+  }, [loadRealityCheckSettingsUseCase, loadThemeSettingsUseCase, onApplyThemeSettings]);
 
   const previewPalette = useMemo(() => THEME_PALETTES[previewThemeName], [previewThemeName]);
 
@@ -216,30 +334,78 @@ export function SettingsScreenView({
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    const startMinutes = parseTimeInput(sleepStart);
-    const endMinutes = parseTimeInput(sleepEnd);
+    const sleepStartMinutes = parseTimeInput(sleepStart);
+    const sleepEndMinutes = parseTimeInput(sleepEnd);
+    const rcStartMinutes = parseTimeInput(rcActiveStart);
+    const rcEndMinutes = parseTimeInput(rcActiveEnd);
 
-    if (startMinutes === null || endMinutes === null) {
+    if (sleepStartMinutes === null || sleepEndMinutes === null) {
       setErrorMessage('Sleep window must use HH:MM format (24-hour).');
       return;
     }
 
-    const nextSettings: ThemeSettings = {
+    if (rcStartMinutes === null || rcEndMinutes === null) {
+      setErrorMessage('Reality Check active hours must use HH:MM format (24-hour).');
+      return;
+    }
+
+    const notificationText = rcNotificationText.trim();
+
+    if (notificationText.length === 0) {
+      setErrorMessage('Reality Check notification text is required.');
+      return;
+    }
+
+    const nextThemeSettings: ThemeSettings = {
       sleepWindow: {
-        startMinutes,
-        endMinutes,
+        startMinutes: sleepStartMinutes,
+        endMinutes: sleepEndMinutes,
       },
       autoInfraredEnabled,
     };
 
+    let nextRealityCheckSettings: RealityCheckSettings;
+
+    if (rcMode === 'INTERVAL') {
+      const intervalHours = parseIntervalHours(rcIntervalHours);
+
+      if (intervalHours === null) {
+        setErrorMessage('Reality Check interval must be a positive integer (hours).');
+        return;
+      }
+
+      nextRealityCheckSettings = {
+        mode: 'INTERVAL',
+        intervalHours,
+        activeWindow: {
+          startMinutes: rcStartMinutes,
+          endMinutes: rcEndMinutes,
+        },
+        notificationText,
+      };
+    } else {
+      nextRealityCheckSettings = {
+        mode: 'RANDOM',
+        activeWindow: {
+          startMinutes: rcStartMinutes,
+          endMinutes: rcEndMinutes,
+        },
+        notificationText,
+      };
+    }
+
     setIsSaving(true);
 
     try {
-      await saveThemeSettingsUseCase.execute(nextSettings);
-      onApplyThemeSettings(nextSettings);
-      setSuccessMessage('Settings saved locally.');
+      await saveThemeSettingsUseCase.execute(nextThemeSettings);
+      onApplyThemeSettings(nextThemeSettings);
+
+      const scheduleResult =
+        await saveRealityCheckSettingsUseCase.execute(nextRealityCheckSettings);
+
+      setSuccessMessage(getSaveSuccessMessage(scheduleResult));
     } catch {
-      setErrorMessage('Unable to save theme settings locally.');
+      setErrorMessage('Unable to save settings locally.');
     } finally {
       setIsSaving(false);
     }
@@ -330,6 +496,157 @@ export function SettingsScreenView({
             onValueChange={setAutoInfraredEnabled}
             testID="settings-auto-infrared-switch"
             value={autoInfraredEnabled}
+          />
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.section,
+          {
+            backgroundColor: '#101010',
+            borderColor: activeThemePalette.textSecondary,
+            borderWidth: 1,
+          },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: activeThemePalette.textPrimary }]}>
+          Reality Checks
+        </Text>
+        <Text style={[styles.sectionDescription, { color: activeThemePalette.textSecondary }]}>
+          Configure local reminder mode, active hours, and notification text.
+        </Text>
+
+        <View style={styles.modeButtons}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setRcMode('RANDOM')}
+            style={[
+              styles.modeButton,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                backgroundColor: rcMode === 'RANDOM' ? '#1E1E1E' : 'transparent',
+              },
+            ]}
+            testID="settings-rc-mode-random-button"
+          >
+            <Text style={[styles.modeButtonText, { color: activeThemePalette.textPrimary }]}>
+              Random
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setRcMode('INTERVAL')}
+            style={[
+              styles.modeButton,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                backgroundColor: rcMode === 'INTERVAL' ? '#1E1E1E' : 'transparent',
+              },
+            ]}
+            testID="settings-rc-mode-interval-button"
+          >
+            <Text style={[styles.modeButtonText, { color: activeThemePalette.textPrimary }]}>
+              Every X hours
+            </Text>
+          </Pressable>
+        </View>
+
+        {rcMode === 'INTERVAL' ? (
+          <View style={styles.field}>
+            <Text style={[styles.fieldLabel, { color: activeThemePalette.textPrimary }]}>
+              Interval (hours)
+            </Text>
+            <TextInput
+              accessibilityLabel="Reality Check interval hours"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="number-pad"
+              onChangeText={setRcIntervalHours}
+              placeholder="3"
+              placeholderTextColor={activeThemePalette.textSecondary}
+              style={[
+                styles.input,
+                {
+                  borderColor: activeThemePalette.textSecondary,
+                  color: activeThemePalette.textPrimary,
+                },
+              ]}
+              testID="settings-rc-interval-input"
+              value={rcIntervalHours}
+            />
+          </View>
+        ) : null}
+
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { color: activeThemePalette.textPrimary }]}>
+            Active start
+          </Text>
+          <TextInput
+            accessibilityLabel="Reality Check active start"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="numbers-and-punctuation"
+            onChangeText={setRcActiveStart}
+            placeholder="09:00"
+            placeholderTextColor={activeThemePalette.textSecondary}
+            style={[
+              styles.input,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                color: activeThemePalette.textPrimary,
+              },
+            ]}
+            testID="settings-rc-active-start-input"
+            value={rcActiveStart}
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { color: activeThemePalette.textPrimary }]}>
+            Active end
+          </Text>
+          <TextInput
+            accessibilityLabel="Reality Check active end"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="numbers-and-punctuation"
+            onChangeText={setRcActiveEnd}
+            placeholder="22:00"
+            placeholderTextColor={activeThemePalette.textSecondary}
+            style={[
+              styles.input,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                color: activeThemePalette.textPrimary,
+              },
+            ]}
+            testID="settings-rc-active-end-input"
+            value={rcActiveEnd}
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { color: activeThemePalette.textPrimary }]}>
+            Notification text
+          </Text>
+          <TextInput
+            accessibilityLabel="Reality Check notification text"
+            autoCapitalize="sentences"
+            autoCorrect
+            multiline
+            onChangeText={setRcNotificationText}
+            placeholder="Reality check: Am I dreaming right now?"
+            placeholderTextColor={activeThemePalette.textSecondary}
+            style={[
+              styles.textArea,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                color: activeThemePalette.textPrimary,
+              },
+            ]}
+            testID="settings-rc-text-input"
+            value={rcNotificationText}
           />
         </View>
       </View>
@@ -452,9 +769,12 @@ export function SettingsScreen() {
         sleepWindow,
         autoInfraredEnabled,
       }}
+      initialRealityCheckSettings={DEFAULT_REALITY_CHECK_SETTINGS}
       loadThemeSettingsUseCase={useCases.getThemeSettingsUseCase}
-      onApplyThemeSettings={applyThemeSettings}
       saveThemeSettingsUseCase={useCases.saveThemeSettingsUseCase}
+      loadRealityCheckSettingsUseCase={useCases.getRealityCheckSettingsUseCase}
+      saveRealityCheckSettingsUseCase={useCases.saveRealityCheckSettingsUseCase}
+      onApplyThemeSettings={applyThemeSettings}
     />
   );
 }
