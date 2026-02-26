@@ -7,6 +7,7 @@ import {
 
 import type { Dream } from '../../domain';
 import { DreamDetailScreen, DreamHistoryScreen, QuickCaptureScreen } from '../journal';
+import { OniriPediaScreen } from '../pedia';
 import { SettingsScreen } from '../settings';
 import { PlaceholderScreen } from './PlaceholderScreen';
 
@@ -80,12 +81,7 @@ function InductionHomeScreen() {
 }
 
 function PediaHomeScreen() {
-  return (
-    <PlaceholderScreen
-      title="Pedia placeholder"
-      description="Dream encyclopedia content will be added here."
-    />
-  );
+  return <OniriPediaScreen />;
 }
 
 function JournalStackNavigator() {

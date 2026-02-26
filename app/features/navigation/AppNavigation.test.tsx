@@ -143,7 +143,15 @@ describe('AppNavigation', () => {
     expect(await screen.findByText('Induction placeholder')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Pedia'));
-    expect(await screen.findByText('Pedia placeholder')).toBeTruthy();
+    expect(await screen.findByText('Oniri-Pedia')).toBeTruthy();
+    expect(screen.getByTestId('oniri-pedia-page-title')).toHaveTextContent('Oniri-Pedia Index');
+
+    fireEvent.changeText(screen.getByTestId('oniri-pedia-search-input'), 'senses initiated');
+    expect(await screen.findByTestId('oniri-pedia-search-result-ssild')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('oniri-pedia-search-result-ssild'));
+    expect(await screen.findByTestId('oniri-pedia-page-title')).toHaveTextContent(
+      'SSILD: Senses Initiated Lucid Dream',
+    );
 
     fireEvent.press(screen.getByText('Settings'));
     expect(await screen.findByText('Settings screen')).toBeTruthy();
