@@ -5,6 +5,7 @@ export type {
   RealityCheckSettingsRepository,
   TagRepository,
   UsageLogRepository,
+  WbtbSettingsRepository,
 } from './repositories';
 export {
   AddTagToDreamUseCase,
@@ -12,6 +13,7 @@ export {
   CreateTagUseCase,
   CreateDreamUseCase,
   GetRealityCheckSettingsUseCase,
+  GetWbtbSettingsUseCase,
   GetThemeSettingsUseCase,
   ListDreamAssetsUseCase,
   ListDreamTagsUseCase,
@@ -21,8 +23,11 @@ export {
   RecordDreamAudioUseCase,
   SaveDreamDrawingUseCase,
   SaveRealityCheckSettingsUseCase,
+  SaveWbtbSettingsUseCase,
   SaveThemeSettingsUseCase,
   ScheduleRealityChecksUseCase,
+  ScheduleWbtbAlarmUseCase,
+  WBTB_ALARM_NOTIFICATION_IDENTIFIER,
   SearchTagsUseCase,
   type AddTagToDreamInput,
   type AddTagToDreamResult,
@@ -45,7 +50,9 @@ export {
   type RecordUsageLogResult,
   type RealityCheckNotificationsClient,
   type SaveRealityCheckSettingsResult,
+  type SaveWbtbSettingsResult,
   type ScheduleRealityChecksResult,
+  type ScheduleWbtbAlarmResult,
   type SaveDreamDrawingInput,
   type SaveDreamDrawingResult,
   type StartDreamAudioRecordingResult,
@@ -61,4 +68,5 @@ export {
   type DreamAudioFileStore,
   type DreamAudioRecorder,
   type UsageLogIdGenerator,
+  type WbtbAlarmNotificationsClient,
 } from './useCases';

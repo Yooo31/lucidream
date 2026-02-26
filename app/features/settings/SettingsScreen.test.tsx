@@ -1,15 +1,26 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
-import { DEFAULT_REALITY_CHECK_SETTINGS, FakeClock, type RealityCheckSettings } from '../../domain';
+import {
+  DEFAULT_REALITY_CHECK_SETTINGS,
+  DEFAULT_WBTB_SETTINGS,
+  FakeClock,
+  type RealityCheckSettings,
+  type WbtbSettings,
+} from '../../domain';
 import {
   SaveRealityCheckSettingsUseCase,
+  SaveWbtbSettingsUseCase,
   ScheduleRealityChecksUseCase,
+  ScheduleWbtbAlarmUseCase,
+  WBTB_ALARM_NOTIFICATION_IDENTIFIER,
   type RealityCheckNotificationsClient,
+  type WbtbAlarmNotificationsClient,
 } from '../../services';
 import {
   createLicenseRepositoryMock,
   createRealityCheckSettingsRepositoryMock,
   createUsageLogRepositoryMock,
+  createWbtbSettingsRepositoryMock,
 } from '../../services/useCases/testing/createRepositoryMocks';
 import { THEME_PALETTES, type ThemeSettings } from '../../theme';
 import { SettingsScreenView } from './SettingsScreen';
@@ -42,6 +53,24 @@ function createRealityCheckSettingsWriter() {
   };
 }
 
+function createWbtbSettingsReader(settings: WbtbSettings) {
+  return {
+    execute: jest.fn(async () => settings),
+  };
+}
+
+function createWbtbSettingsWriter() {
+  return {
+    execute: jest.fn(async () => ({
+      scheduled: false,
+      skippedByQuota: false,
+      maxWbtbUsesLast7Days: null,
+      scheduledFor: null,
+      autoStopAt: null,
+    })),
+  };
+}
+
 function createNotificationsClientMock(): jest.Mocked<RealityCheckNotificationsClient> {
   return {
     scheduleNotification: jest.fn<
@@ -49,6 +78,16 @@ function createNotificationsClientMock(): jest.Mocked<RealityCheckNotificationsC
       [Parameters<RealityCheckNotificationsClient['scheduleNotification']>[0]]
     >(async () => 'notification-id-1'),
     cancelAll: jest.fn(async () => undefined),
+  };
+}
+
+function createWbtbNotificationsClientMock(): jest.Mocked<WbtbAlarmNotificationsClient> {
+  return {
+    scheduleNotification: jest.fn<
+      Promise<string>,
+      [Parameters<WbtbAlarmNotificationsClient['scheduleNotification']>[0]]
+    >(async () => WBTB_ALARM_NOTIFICATION_IDENTIFIER),
+    cancelNotification: jest.fn<Promise<void>, [string]>(async () => undefined),
   };
 }
 
@@ -70,6 +109,12 @@ describe('SettingsScreenView', () => {
     notificationText: 'Reality check: Am I dreaming right now?',
   };
 
+  const initialWbtbSettings: WbtbSettings = {
+    enabled: false,
+    afterSleepHours: 6,
+    alarmDurationSeconds: 45,
+  };
+
   it('loads settings and persists form values through save use-cases', async () => {
     const loadedSettings: ThemeSettings = {
       sleepWindow: {
@@ -87,12 +132,19 @@ describe('SettingsScreenView', () => {
       },
       notificationText: 'Am I dreaming?',
     };
+    const loadedWbtbSettings: WbtbSettings = {
+      enabled: true,
+      afterSleepHours: 5,
+      alarmDurationSeconds: 30,
+    };
     const loadThemeSettingsUseCase = createThemeSettingsReader(loadedSettings);
     const saveThemeSettingsUseCase = createThemeSettingsWriter();
     const loadRealityCheckSettingsUseCase = createRealityCheckSettingsReader(
       loadedRealityCheckSettings,
     );
     const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
+    const loadWbtbSettingsUseCase = createWbtbSettingsReader(loadedWbtbSettings);
+    const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
     const onApplyThemeSettings = jest.fn<void, [ThemeSettings]>();
 
     render(
@@ -101,10 +153,13 @@ describe('SettingsScreenView', () => {
         activeThemePalette={THEME_PALETTES.dark}
         initialSettings={initialSettings}
         initialRealityCheckSettings={initialRealityCheckSettings}
+        initialWbtbSettings={initialWbtbSettings}
         loadThemeSettingsUseCase={loadThemeSettingsUseCase}
         saveThemeSettingsUseCase={saveThemeSettingsUseCase}
         loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
         saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
+        saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
         onApplyThemeSettings={onApplyThemeSettings}
       />,
     );
@@ -112,12 +167,15 @@ describe('SettingsScreenView', () => {
     await waitFor(() => {
       expect(loadThemeSettingsUseCase.execute).toHaveBeenCalledTimes(1);
       expect(loadRealityCheckSettingsUseCase.execute).toHaveBeenCalledTimes(1);
+      expect(loadWbtbSettingsUseCase.execute).toHaveBeenCalledTimes(1);
       expect(screen.getByDisplayValue('21:30')).toBeTruthy();
       expect(screen.getByDisplayValue('06:15')).toBeTruthy();
       expect(screen.getByDisplayValue('4')).toBeTruthy();
       expect(screen.getByDisplayValue('08:00')).toBeTruthy();
       expect(screen.getByDisplayValue('20:00')).toBeTruthy();
       expect(screen.getByDisplayValue('Am I dreaming?')).toBeTruthy();
+      expect(screen.getByDisplayValue('5')).toBeTruthy();
+      expect(screen.getByDisplayValue('30')).toBeTruthy();
     });
 
     fireEvent.changeText(screen.getByTestId('settings-sleep-start-input'), '22:10');
@@ -128,6 +186,9 @@ describe('SettingsScreenView', () => {
     fireEvent.changeText(screen.getByTestId('settings-rc-active-start-input'), '07:00');
     fireEvent.changeText(screen.getByTestId('settings-rc-active-end-input'), '19:00');
     fireEvent.changeText(screen.getByTestId('settings-rc-text-input'), 'Reality check now.');
+    fireEvent(screen.getByTestId('settings-wbtb-enabled-switch'), 'valueChange', true);
+    fireEvent.changeText(screen.getByTestId('settings-wbtb-after-hours-input'), '4');
+    fireEvent.changeText(screen.getByTestId('settings-wbtb-auto-stop-seconds-input'), '25');
     fireEvent.press(screen.getByTestId('settings-save-button'));
 
     await waitFor(() => {
@@ -147,6 +208,11 @@ describe('SettingsScreenView', () => {
         },
         notificationText: 'Reality check now.',
       });
+      expect(saveWbtbSettingsUseCase.execute).toHaveBeenCalledWith({
+        enabled: true,
+        afterSleepHours: 4,
+        alarmDurationSeconds: 25,
+      });
     });
     expect(onApplyThemeSettings).toHaveBeenCalledWith({
       sleepWindow: {
@@ -165,6 +231,8 @@ describe('SettingsScreenView', () => {
       initialRealityCheckSettings,
     );
     const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
+    const loadWbtbSettingsUseCase = createWbtbSettingsReader(initialWbtbSettings);
+    const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
 
     render(
       <SettingsScreenView
@@ -172,10 +240,13 @@ describe('SettingsScreenView', () => {
         activeThemePalette={THEME_PALETTES.dark}
         initialSettings={initialSettings}
         initialRealityCheckSettings={initialRealityCheckSettings}
+        initialWbtbSettings={initialWbtbSettings}
         loadThemeSettingsUseCase={loadThemeSettingsUseCase}
         saveThemeSettingsUseCase={saveThemeSettingsUseCase}
         loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
         saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
+        saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
         onApplyThemeSettings={jest.fn()}
       />,
     );
@@ -190,6 +261,7 @@ describe('SettingsScreenView', () => {
     });
     expect(saveThemeSettingsUseCase.execute).not.toHaveBeenCalled();
     expect(saveRealityCheckSettingsUseCase.execute).not.toHaveBeenCalled();
+    expect(saveWbtbSettingsUseCase.execute).not.toHaveBeenCalled();
   });
 
   it('schedules notifications when saving reality check settings', async () => {
@@ -204,6 +276,8 @@ describe('SettingsScreenView', () => {
         endMinutes: 0,
       },
     });
+    const loadWbtbSettingsUseCase = createWbtbSettingsReader(DEFAULT_WBTB_SETTINGS);
+    const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
     const notificationsClient = createNotificationsClientMock();
     const clock = new FakeClock(Date.parse('2026-02-26T10:00:00.000Z'));
     const usageLogRepository = createUsageLogRepositoryMock();
@@ -227,10 +301,13 @@ describe('SettingsScreenView', () => {
         activeThemePalette={THEME_PALETTES.dark}
         initialSettings={initialSettings}
         initialRealityCheckSettings={initialRealityCheckSettings}
+        initialWbtbSettings={initialWbtbSettings}
         loadThemeSettingsUseCase={loadThemeSettingsUseCase}
         saveThemeSettingsUseCase={saveThemeSettingsUseCase}
         loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
         saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
+        saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
         onApplyThemeSettings={jest.fn()}
       />,
     );
@@ -259,5 +336,90 @@ describe('SettingsScreenView', () => {
       notificationText: 'Reality check now.',
     });
     expect(usageLogRepository.create).toHaveBeenCalled();
+  });
+
+  it('schedules a WBTB alarm when saving WBTB settings', async () => {
+    const loadThemeSettingsUseCase = createThemeSettingsReader(initialSettings);
+    const saveThemeSettingsUseCase = createThemeSettingsWriter();
+    const loadRealityCheckSettingsUseCase = createRealityCheckSettingsReader(
+      DEFAULT_REALITY_CHECK_SETTINGS,
+    );
+    const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
+    const loadWbtbSettingsUseCase = createWbtbSettingsReader({
+      enabled: true,
+      afterSleepHours: 4,
+      alarmDurationSeconds: 20,
+    });
+    const notificationsClient = createWbtbNotificationsClientMock();
+    const clock = new FakeClock(Date.parse('2026-02-26T22:00:00.000Z'));
+    const usageLogRepository = createUsageLogRepositoryMock();
+    const licenseRepository = createLicenseRepositoryMock('FREE');
+    const settingsRepository = createWbtbSettingsRepositoryMock();
+    const scheduleWbtbAlarmUseCase = new ScheduleWbtbAlarmUseCase(
+      notificationsClient,
+      usageLogRepository,
+      licenseRepository,
+      clock,
+    );
+    const saveWbtbSettingsUseCase = new SaveWbtbSettingsUseCase(
+      settingsRepository,
+      scheduleWbtbAlarmUseCase,
+    );
+
+    render(
+      <SettingsScreenView
+        activeThemeName="dark"
+        activeThemePalette={THEME_PALETTES.dark}
+        initialSettings={initialSettings}
+        initialRealityCheckSettings={initialRealityCheckSettings}
+        initialWbtbSettings={initialWbtbSettings}
+        loadThemeSettingsUseCase={loadThemeSettingsUseCase}
+        saveThemeSettingsUseCase={saveThemeSettingsUseCase}
+        loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
+        saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
+        saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
+        onApplyThemeSettings={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(loadWbtbSettingsUseCase.execute).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent(screen.getByTestId('settings-wbtb-enabled-switch'), 'valueChange', true);
+    fireEvent.changeText(screen.getByTestId('settings-wbtb-after-hours-input'), '6');
+    fireEvent.changeText(screen.getByTestId('settings-wbtb-auto-stop-seconds-input'), '45');
+    fireEvent.press(screen.getByTestId('settings-save-button'));
+
+    await waitFor(() => {
+      expect(notificationsClient.scheduleNotification).toHaveBeenCalledWith({
+        identifier: WBTB_ALARM_NOTIFICATION_IDENTIFIER,
+        content: {
+          title: 'WBTB Alarm',
+          body: 'Wake up for your wake-back-to-bed session.',
+          data: {
+            type: 'wbtb-alarm',
+            autoStopAt: Date.parse('2026-02-27T04:00:45.000Z'),
+            alarmDurationSeconds: 45,
+          },
+        },
+        trigger: {
+          type: 'date',
+          date: new Date('2026-02-27T04:00:00.000Z'),
+        },
+      });
+    });
+    expect(settingsRepository.saveWbtbSettings).toHaveBeenCalledWith({
+      enabled: true,
+      afterSleepHours: 6,
+      alarmDurationSeconds: 45,
+    });
+    expect(usageLogRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'WBTB_SCHEDULED',
+        createdAt: Date.parse('2026-02-26T22:00:00.000Z'),
+      }),
+    );
   });
 });

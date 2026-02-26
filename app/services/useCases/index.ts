@@ -73,10 +73,18 @@ export {
   SaveRealityCheckSettingsUseCase,
   type SaveRealityCheckSettingsResult,
 } from './SaveRealityCheckSettingsUseCase';
+export { GetWbtbSettingsUseCase } from './GetWbtbSettingsUseCase';
+export { SaveWbtbSettingsUseCase, type SaveWbtbSettingsResult } from './SaveWbtbSettingsUseCase';
 export {
   ScheduleRealityChecksUseCase,
   type RealityCheckNotificationsClient,
   type ScheduleRealityChecksResult,
 } from './ScheduleRealityChecksUseCase';
+export {
+  ScheduleWbtbAlarmUseCase,
+  WBTB_ALARM_NOTIFICATION_IDENTIFIER,
+  type ScheduleWbtbAlarmResult,
+  type WbtbAlarmNotificationsClient,
+} from './ScheduleWbtbAlarmUseCase';
 export { GetThemeSettingsUseCase } from './GetThemeSettingsUseCase';
 export { SaveThemeSettingsUseCase } from './SaveThemeSettingsUseCase';

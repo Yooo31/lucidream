@@ -9,6 +9,7 @@ export interface ExpoNotificationPermissionsResponse {
 export type ExpoNotificationTriggerInput = null | Date | { seconds: number; repeats?: boolean };
 
 export interface ExpoNotificationRequestInput {
+  identifier?: string;
   content: NotificationContentInput;
   trigger: ExpoNotificationTriggerInput;
 }
