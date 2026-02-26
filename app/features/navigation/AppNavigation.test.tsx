@@ -17,6 +17,22 @@ jest.mock('../settings', () => {
   return { SettingsScreen };
 });
 
+jest.mock('../journal', () => {
+  const React = jest.requireActual('react');
+  const { Text, View } = jest.requireActual('react-native');
+
+  function QuickCaptureScreen() {
+    return React.createElement(
+      View,
+      null,
+      React.createElement(Text, null, 'Quick Capture'),
+      React.createElement(Text, null, 'Fast wake-up capture with local-only save.'),
+    );
+  }
+
+  return { QuickCaptureScreen };
+});
+
 jest.mock('@react-navigation/native', () => {
   const React = jest.requireActual('react');
 
@@ -101,7 +117,7 @@ describe('AppNavigation', () => {
     expect(screen.getByText('Induction')).toBeTruthy();
     expect(screen.getByText('Pedia')).toBeTruthy();
     expect(screen.getByText('Settings')).toBeTruthy();
-    expect(screen.getByText('Journal placeholder')).toBeTruthy();
+    expect(screen.getByText('Quick Capture')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Induction'));
     expect(await screen.findByText('Induction placeholder')).toBeTruthy();

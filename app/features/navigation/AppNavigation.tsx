@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, type NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { QuickCaptureScreen } from '../journal';
 import { SettingsScreen } from '../settings';
 import { PlaceholderScreen } from './PlaceholderScreen';
 
@@ -40,12 +41,7 @@ const stackScreenOptions = {
 } as const;
 
 function JournalHomeScreen() {
-  return (
-    <PlaceholderScreen
-      title="Journal placeholder"
-      description="Dream journal features will be added here."
-    />
-  );
+  return <QuickCaptureScreen />;
 }
 
 function InductionHomeScreen() {
