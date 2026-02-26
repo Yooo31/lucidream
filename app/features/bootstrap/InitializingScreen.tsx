@@ -1,35 +1,36 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme';
 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    backgroundColor: colors.background,
     flex: 1,
     justifyContent: 'center',
     padding: 16,
   },
   subtitle: {
-    color: colors.textSecondary,
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
   },
   title: {
-    color: colors.textPrimary,
     fontSize: 22,
     fontWeight: '700',
   },
 });
 
 export function InitializingScreen() {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.container}>
-      <Text accessibilityRole="header" style={styles.title}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>
         Initializing...
       </Text>
-      <Text style={styles.subtitle}>Preparing local storage and migrations.</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        Preparing local storage and migrations.
+      </Text>
     </View>
   );
 }

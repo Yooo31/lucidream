@@ -1,4 +1,5 @@
 import { SystemClock, type Clock } from '../domain';
+import type { ThemeSettingsRepository } from '../theme/ThemeSettingsRepository';
 import {
   AddTagToDreamUseCase,
   CreateDreamUseCase,
@@ -14,6 +15,7 @@ import {
   SqliteDreamRepository,
   SqliteLicenseRepository,
   SqliteTagRepository,
+  SqliteThemeSettingsRepository,
   SqliteUsageLogRepository,
   type SqliteDatabase,
 } from '../storage/sqlite';
@@ -23,6 +25,7 @@ export interface AppRepositories {
   tagRepository: TagRepository;
   usageLogRepository: UsageLogRepository;
   licenseRepository: LicenseRepository;
+  themeSettingsRepository: ThemeSettingsRepository;
 }
 
 export interface AppUseCases {
@@ -61,6 +64,7 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
     tagRepository: new SqliteTagRepository(database),
     usageLogRepository: new SqliteUsageLogRepository(database),
     licenseRepository: new SqliteLicenseRepository(database),
+    themeSettingsRepository: new SqliteThemeSettingsRepository(database),
   };
 
   const useCases: AppUseCases = {

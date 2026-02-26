@@ -86,6 +86,18 @@ ON dream_assets(dream_id, created_at);
 `,
     ],
   },
+  {
+    version: 3,
+    statements: [
+      `
+CREATE TABLE IF NOT EXISTS theme_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  sleep_start_minutes INTEGER NOT NULL,
+  sleep_end_minutes INTEGER NOT NULL
+);
+`,
+    ],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;

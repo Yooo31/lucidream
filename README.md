@@ -39,6 +39,8 @@ e2e/
 
 - `feature-first`: chaque domaine met ses ecrans, logique, tests et contrats dans `app/features/*`
 - `offline-first`: logique locale prioritaire dans `app/storage` et `app/services`
+- theming local: `ThemeProvider` + `ThemeEngine` basculent automatiquement entre `dark` et
+  `infrared` selon la fenetre de sommeil stockee en SQLite
 - modules faiblement couples et testables
 - exigences qualite: `typecheck`, `lint --max-warnings=0`, tests unitaires
 - shell applicatif: `AppProvider` initialise SQLite/migrations puis expose `CompositionRoot` au UI

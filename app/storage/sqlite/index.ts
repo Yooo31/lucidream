@@ -3,6 +3,7 @@ export { LATEST_SCHEMA_VERSION, runMigrations } from './migrations';
 export { SqliteDreamRepository } from './SqliteDreamRepository';
 export { SqliteLicenseRepository } from './SqliteLicenseRepository';
 export { SqliteTagRepository } from './SqliteTagRepository';
+export { SqliteThemeSettingsRepository } from './SqliteThemeSettingsRepository';
 export { SqliteUsageLogRepository } from './SqliteUsageLogRepository';
 export type {
   SqliteBindParams,

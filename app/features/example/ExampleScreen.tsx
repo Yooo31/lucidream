@@ -1,32 +1,38 @@
 import { Text, View, StyleSheet } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme';
 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    backgroundColor: colors.background,
     flex: 1,
     justifyContent: 'center',
     padding: 16,
   },
   subtitle: {
-    color: colors.textSecondary,
     fontSize: 16,
     marginTop: 8,
   },
   title: {
-    color: colors.textPrimary,
     fontSize: 28,
     fontWeight: '700',
   },
 });
 
 export function ExampleScreen() {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>LuciDream V1</Text>
-      <Text style={styles.subtitle}>Offline-first mobile foundation</Text>
+    <View
+      testID="example-screen-container"
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
+      <Text testID="example-screen-title" style={[styles.title, { color: colors.textPrimary }]}>
+        LuciDream V1
+      </Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        Offline-first mobile foundation
+      </Text>
     </View>
   );
 }
