@@ -38,6 +38,43 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
+jest.mock('react-native-svg', () => {
+  const React = jest.requireActual('react');
+  const { View } = jest.requireActual('react-native');
+
+  const Svg = React.forwardRef(
+    ({ children, ...props }: { children?: unknown } & Record<string, unknown>, ref: unknown) => {
+      React.useImperativeHandle(
+        ref as {
+          current: {
+            toDataURL: (callback: (base64: string) => void) => void;
+          } | null;
+        },
+        () => ({
+          toDataURL(callback: (base64: string) => void) {
+            callback('iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB');
+          },
+        }),
+        [],
+      );
+
+      return React.createElement(View, props, children);
+    },
+  );
+  Svg.displayName = 'MockSvg';
+
+  function Path(props: Record<string, unknown>) {
+    return React.createElement(View, props);
+  }
+
+  return {
+    __esModule: true,
+    default: Svg,
+    Svg,
+    Path,
+  };
+});
+
 jest.mock('react-native-screens', () => {
   const React = jest.requireActual('react');
   const { View } = jest.requireActual('react-native');

@@ -11,6 +11,7 @@ import {
   PlayDreamAudioUseCase,
   RecordUsageLogUseCase,
   RecordDreamAudioUseCase,
+  SaveDreamDrawingUseCase,
   SaveThemeSettingsUseCase,
   SearchTagsUseCase,
   type DreamRepository,
@@ -47,6 +48,7 @@ export interface AppUseCases {
   recordUsageLogUseCase: RecordUsageLogUseCase;
   recordDreamAudioUseCase: RecordDreamAudioUseCase;
   playDreamAudioUseCase: PlayDreamAudioUseCase;
+  saveDreamDrawingUseCase: SaveDreamDrawingUseCase;
   getThemeSettingsUseCase: GetThemeSettingsUseCase;
   saveThemeSettingsUseCase: SaveThemeSettingsUseCase;
 }
@@ -129,6 +131,21 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
       repositories.usageLogRepository,
       clock,
       audioPlayer,
+    ),
+    saveDreamDrawingUseCase: new SaveDreamDrawingUseCase(
+      repositories.dreamRepository,
+      repositories.licenseRepository,
+      repositories.usageLogRepository,
+      clock,
+      {
+        saveBase64Png: async ({ drawingId, base64Png }) =>
+          fileStorage.save({
+            id: drawingId,
+            kind: 'drawing',
+            content: base64Png,
+            encoding: 'base64',
+          }),
+      },
     ),
     getThemeSettingsUseCase: new GetThemeSettingsUseCase(repositories.themeSettingsRepository),
     saveThemeSettingsUseCase: new SaveThemeSettingsUseCase(repositories.themeSettingsRepository),

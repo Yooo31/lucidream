@@ -1,12 +1,22 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { FakeClock, type Dream, type Tag } from '../../domain';
-import { PlayDreamAudioUseCase, type DreamAudioPlayer } from '../../services';
+import {
+  PlayDreamAudioUseCase,
+  SaveDreamDrawingUseCase,
+  type DreamAudioPlayer,
+} from '../../services';
 import {
   createDreamRepositoryMock,
   createLicenseRepositoryMock,
   createUsageLogRepositoryMock,
 } from '../../services/useCases/testing/createRepositoryMocks';
+import {
+  SqliteDreamRepository,
+  SqliteLicenseRepository,
+  SqliteUsageLogRepository,
+} from '../../storage/sqlite';
+import { InMemorySqliteTestDatabase } from '../../storage/sqlite/testing/InMemorySqliteTestDatabase';
 import { THEME_PALETTES } from '../../theme';
 import { DreamDetailScreenView } from './DreamDetailScreen';
 
@@ -76,6 +86,22 @@ function createAudioControllers() {
   return {
     recordDreamAudioUseCase,
     playDreamAudioUseCase,
+  };
+}
+
+function createDrawingController() {
+  return {
+    execute: jest.fn(async () => ({
+      ok: true as const,
+      dream: {
+        ...BASE_DREAM,
+        drawingPath: 'file:///sandbox/lucidream/drawings/dream-1-drawing-1.png',
+      },
+      drawingPath: 'file:///sandbox/lucidream/drawings/dream-1-drawing-1.png',
+      decision: {
+        maxDrawingsPerDream: 1,
+      },
+    })),
   };
 }
 
@@ -154,6 +180,7 @@ describe('DreamDetailScreenView', () => {
         listDreamTagsUseCase={listDreamTagsUseCase}
         recordDreamAudioUseCase={recordDreamAudioUseCase}
         playDreamAudioUseCase={playDreamAudioUseCase}
+        saveDreamDrawingUseCase={createDrawingController()}
       />,
     );
 
@@ -222,6 +249,7 @@ describe('DreamDetailScreenView', () => {
         listDreamTagsUseCase={listDreamTagsUseCase}
         recordDreamAudioUseCase={recordDreamAudioUseCase}
         playDreamAudioUseCase={playDreamAudioUseCase}
+        saveDreamDrawingUseCase={createDrawingController()}
       />,
     );
 
@@ -275,6 +303,7 @@ describe('DreamDetailScreenView', () => {
         listDreamTagsUseCase={listDreamTagsUseCase}
         recordDreamAudioUseCase={recordDreamAudioUseCase}
         playDreamAudioUseCase={playDreamAudioUseCase}
+        saveDreamDrawingUseCase={createDrawingController()}
       />,
     );
 
@@ -335,6 +364,7 @@ describe('DreamDetailScreenView', () => {
         listDreamTagsUseCase={listDreamTagsUseCase}
         recordDreamAudioUseCase={recordDreamAudioUseCase}
         playDreamAudioUseCase={playDreamAudioUseCase}
+        saveDreamDrawingUseCase={createDrawingController()}
       />,
     );
 
@@ -385,6 +415,7 @@ describe('DreamDetailScreenView', () => {
         listDreamTagsUseCase={listDreamTagsUseCase}
         recordDreamAudioUseCase={recordDreamAudioUseCase}
         playDreamAudioUseCase={playDreamAudioUseCase}
+        saveDreamDrawingUseCase={createDrawingController()}
       />,
     );
 
@@ -458,6 +489,7 @@ describe('DreamDetailScreenView', () => {
         listDreamTagsUseCase={listDreamTagsUseCase}
         recordDreamAudioUseCase={recordDreamAudioUseCase}
         playDreamAudioUseCase={playDreamAudioUseCase}
+        saveDreamDrawingUseCase={createDrawingController()}
       />,
     );
 
@@ -482,5 +514,88 @@ describe('DreamDetailScreenView', () => {
         'Playback state: Idle',
       );
     });
+  });
+
+  it('saves drawing PNG locally and creates a dream asset record', async () => {
+    const database = new InMemorySqliteTestDatabase();
+    const dreamRepository = new SqliteDreamRepository(database);
+    const licenseRepository = new SqliteLicenseRepository(database);
+    const usageLogRepository = new SqliteUsageLogRepository(database);
+
+    await licenseRepository.create('FREE');
+    await dreamRepository.create(BASE_DREAM);
+
+    const drawingExporter = {
+      exportToPngBase64: jest.fn(async () => 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB'),
+      clear: jest.fn(),
+    };
+    const drawingFileStore = {
+      saveBase64Png: jest.fn<
+        Promise<string>,
+        [
+          {
+            drawingId: string;
+            base64Png: string;
+          },
+        ]
+      >(async ({ drawingId }) => `file:///sandbox/lucidream/drawings/${drawingId}.png`),
+    };
+    const saveDreamDrawingUseCase = new SaveDreamDrawingUseCase(
+      dreamRepository,
+      licenseRepository,
+      usageLogRepository,
+      new FakeClock(Date.parse('2026-02-26T12:00:00.000Z')),
+      drawingFileStore,
+    );
+    const searchTagsUseCase = {
+      execute: jest.fn(async () => createSearchResult([])),
+    };
+    const createTagUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const addTagToDreamUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const listDreamTagsUseCase = {
+      execute: jest.fn(async () => ({
+        ok: true as const,
+        tags: [],
+      })),
+    };
+    const { recordDreamAudioUseCase, playDreamAudioUseCase } = createAudioControllers();
+
+    render(
+      <DreamDetailScreenView
+        activeThemePalette={THEME_PALETTES.dark}
+        dream={BASE_DREAM}
+        searchTagsUseCase={searchTagsUseCase}
+        createTagUseCase={createTagUseCase}
+        addTagToDreamUseCase={addTagToDreamUseCase}
+        listDreamTagsUseCase={listDreamTagsUseCase}
+        recordDreamAudioUseCase={recordDreamAudioUseCase}
+        playDreamAudioUseCase={playDreamAudioUseCase}
+        saveDreamDrawingUseCase={saveDreamDrawingUseCase}
+        drawingExporter={drawingExporter}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('dream-detail-drawing-save-button'));
+
+    await waitFor(() => {
+      expect(drawingExporter.exportToPngBase64).toHaveBeenCalledTimes(1);
+      expect(drawingFileStore.saveBase64Png).toHaveBeenCalledWith({
+        drawingId: 'dream-1-drawing-1',
+        base64Png: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB',
+      });
+      expect(screen.getByTestId('dream-detail-drawing-item')).toHaveTextContent(
+        'dream-1-drawing-1.png',
+      );
+    });
+
+    expect(await dreamRepository.countDrawingsByDreamId(BASE_DREAM.id)).toBe(1);
+    expect((await dreamRepository.getById(BASE_DREAM.id))?.drawingPath).toBe(
+      'file:///sandbox/lucidream/drawings/dream-1-drawing-1.png',
+    );
+    expect(drawingExporter.clear).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useCompositionRoot } from '../../composition';
 import type { Dream, DreamQuality, Tag, TagType } from '../../domain';
 import { useTheme, type ThemePalette } from '../../theme';
+import { DreamDrawingCanvas, type DreamDrawingCanvasHandle } from './DreamDrawingCanvas';
 
 interface DreamTagSearchReader {
   execute(input: { type: TagType; query: string }): Promise<{
@@ -60,6 +61,23 @@ interface DreamAudioPlayerController {
   stop(): Promise<void>;
 }
 
+interface DreamDrawingExporter {
+  exportToPngBase64(): Promise<string>;
+  clear?(): void;
+}
+
+interface DreamDrawingSaverController {
+  execute(input: { dreamId: string; exporter: DreamDrawingExporter }): Promise<{
+    ok: boolean;
+    code?: string;
+    dream?: Dream;
+    drawingPath?: string;
+    decision?: {
+      maxDrawingsPerDream: number;
+    };
+  }>;
+}
+
 type AudioPlaybackState = 'IDLE' | 'PLAYING' | 'PAUSED';
 
 const TAG_TYPE_OPTIONS: ReadonlyArray<{ type: TagType; label: string }> = [
@@ -112,6 +130,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#050505',
     flex: 1,
     padding: 16,
+  },
+  drawingButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    flex: 1,
+    marginTop: 10,
+    minHeight: 42,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  drawingButtonsRow: {
+    flexDirection: 'row',
+    marginTop: 2,
+  },
+  drawingSecondaryButton: {
+    marginLeft: 8,
   },
   errorText: {
     color: '#FF8B7A',
@@ -310,6 +344,10 @@ function toFileName(path: string): string {
   return fileName && fileName.length > 0 ? fileName : normalizedPath;
 }
 
+function toDrawingLimitMessage(decision: { maxDrawingsPerDream: number }): string {
+  return `Drawing limit reached (${decision.maxDrawingsPerDream} per dream).`;
+}
+
 interface DreamDetailScreenViewProps {
   activeThemePalette: ThemePalette;
   dream: Dream;
@@ -319,6 +357,9 @@ interface DreamDetailScreenViewProps {
   listDreamTagsUseCase: DreamTagReader;
   recordDreamAudioUseCase: DreamAudioRecorderController;
   playDreamAudioUseCase: DreamAudioPlayerController;
+  saveDreamDrawingUseCase: DreamDrawingSaverController;
+  isInfraredMode?: boolean;
+  drawingExporter?: DreamDrawingExporter;
   onBack?: () => void;
 }
 
@@ -331,8 +372,12 @@ export function DreamDetailScreenView({
   listDreamTagsUseCase,
   recordDreamAudioUseCase,
   playDreamAudioUseCase,
+  saveDreamDrawingUseCase,
+  isInfraredMode = false,
+  drawingExporter,
   onBack,
 }: DreamDetailScreenViewProps) {
+  const drawingCanvasRef = useRef<DreamDrawingCanvasHandle | null>(null);
   const [localDream, setLocalDream] = useState(dream);
   const [dreamTags, setDreamTags] = useState<readonly Tag[]>([]);
   const [selectedTagType, setSelectedTagType] = useState<TagType>('CHARACTER');
@@ -347,6 +392,9 @@ export function DreamDetailScreenView({
   const [audioStatusMessage, setAudioStatusMessage] = useState<string | null>(null);
   const [isAudioSubmitting, setIsAudioSubmitting] = useState(false);
   const [audioPlaybackState, setAudioPlaybackState] = useState<AudioPlaybackState>('IDLE');
+  const [drawingErrorMessage, setDrawingErrorMessage] = useState<string | null>(null);
+  const [drawingStatusMessage, setDrawingStatusMessage] = useState<string | null>(null);
+  const [isDrawingSubmitting, setIsDrawingSubmitting] = useState(false);
 
   const lucidityScore = inferLucidityScore(localDream.quality);
   const normalizedSearchQuery = useMemo(() => normalizeTagName(searchQuery), [searchQuery]);
@@ -354,6 +402,8 @@ export function DreamDetailScreenView({
   useEffect(() => {
     setLocalDream(dream);
     setAudioPlaybackState('IDLE');
+    setDrawingErrorMessage(null);
+    setDrawingStatusMessage(null);
   }, [dream]);
 
   useEffect(
@@ -670,6 +720,72 @@ export function DreamDetailScreenView({
       setAudioErrorMessage('Unable to stop attached audio.');
     } finally {
       setIsAudioSubmitting(false);
+    }
+  };
+
+  const resolveDrawingExporter = (): DreamDrawingExporter | null =>
+    drawingExporter ?? drawingCanvasRef.current;
+
+  const handleClearDrawingCanvas = () => {
+    const exporter = resolveDrawingExporter();
+
+    exporter?.clear?.();
+    setDrawingErrorMessage(null);
+    setDrawingStatusMessage('Drawing canvas cleared.');
+  };
+
+  const handleSaveDrawing = async () => {
+    if (isDrawingSubmitting) {
+      return;
+    }
+
+    const exporter = resolveDrawingExporter();
+
+    if (!exporter) {
+      setDrawingErrorMessage('Drawing canvas is not ready.');
+      return;
+    }
+
+    setIsDrawingSubmitting(true);
+    setDrawingErrorMessage(null);
+    setDrawingStatusMessage(null);
+
+    try {
+      const result = await saveDreamDrawingUseCase.execute({
+        dreamId: localDream.id,
+        exporter,
+      });
+
+      if (!result.ok || result.dream === undefined || result.drawingPath === undefined) {
+        if (result.code === 'DREAM_NOT_FOUND') {
+          setDrawingErrorMessage('Dream no longer exists.');
+          return;
+        }
+
+        if (result.code === 'DRAWING_QUOTA_REACHED' && result.decision) {
+          setDrawingErrorMessage(toDrawingLimitMessage(result.decision));
+          return;
+        }
+
+        if (result.code === 'DRAWING_EXPORT_FAILED') {
+          setDrawingErrorMessage('Unable to export PNG from drawing canvas.');
+          return;
+        }
+
+        if (result.code === 'DRAWING_SAVE_FAILED') {
+          setDrawingErrorMessage('Unable to save drawing locally.');
+          return;
+        }
+
+        setDrawingErrorMessage('Unable to attach drawing.');
+        return;
+      }
+
+      setLocalDream(result.dream);
+      setDrawingStatusMessage(`Attached drawing: ${toFileName(result.drawingPath)}`);
+      exporter.clear?.();
+    } finally {
+      setIsDrawingSubmitting(false);
     }
   };
 
@@ -1045,12 +1161,62 @@ export function DreamDetailScreenView({
           },
         ]}
       >
-        <Text style={[styles.rowLabel, { color: activeThemePalette.textSecondary }]}>
-          Drawing Path
-        </Text>
-        <Text style={[styles.rowValue, { color: activeThemePalette.textPrimary }]}>
-          {toOptionalValue(localDream.drawingPath)}
-        </Text>
+        <Text style={[styles.rowLabel, { color: activeThemePalette.textSecondary }]}>Drawing</Text>
+        {localDream.drawingPath ? (
+          <Text
+            style={[styles.rowValue, { color: activeThemePalette.textPrimary }]}
+            testID="dream-detail-drawing-item"
+          >
+            {toFileName(localDream.drawingPath)}
+          </Text>
+        ) : (
+          <Text style={[styles.rowValue, { color: activeThemePalette.textPrimary }]}>
+            No attached drawing.
+          </Text>
+        )}
+        {drawingExporter ? null : (
+          <DreamDrawingCanvas isInfraredMode={isInfraredMode} ref={drawingCanvasRef} />
+        )}
+        <View style={styles.drawingButtonsRow}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              handleSaveDrawing().catch(() => undefined);
+            }}
+            style={[
+              styles.drawingButton,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                backgroundColor: '#141414',
+                opacity: isDrawingSubmitting ? 0.65 : 1,
+              },
+            ]}
+            testID="dream-detail-drawing-save-button"
+          >
+            <Text style={[styles.audioButtonText, { color: activeThemePalette.textPrimary }]}>
+              {isDrawingSubmitting ? 'Saving...' : 'Save drawing'}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleClearDrawingCanvas}
+            style={[
+              styles.drawingButton,
+              styles.drawingSecondaryButton,
+              {
+                borderColor: activeThemePalette.textSecondary,
+                backgroundColor: '#111111',
+              },
+            ]}
+            testID="dream-detail-drawing-clear-button"
+          >
+            <Text style={[styles.audioButtonText, { color: activeThemePalette.textPrimary }]}>
+              Clear
+            </Text>
+          </Pressable>
+        </View>
+        {drawingErrorMessage ? <Text style={styles.errorText}>{drawingErrorMessage}</Text> : null}
+        {drawingStatusMessage ? <Text style={styles.infoText}>{drawingStatusMessage}</Text> : null}
       </View>
 
       <View
@@ -1077,7 +1243,7 @@ interface DreamDetailScreenProps {
 }
 
 export function DreamDetailScreen({ dream, onBack }: DreamDetailScreenProps) {
-  const { colors } = useTheme();
+  const { colors, themeName } = useTheme();
   const { useCases } = useCompositionRoot();
   const optionalProps =
     onBack === undefined
@@ -1096,6 +1262,8 @@ export function DreamDetailScreen({ dream, onBack }: DreamDetailScreenProps) {
       listDreamTagsUseCase={useCases.listDreamTagsUseCase}
       recordDreamAudioUseCase={useCases.recordDreamAudioUseCase}
       playDreamAudioUseCase={useCases.playDreamAudioUseCase}
+      saveDreamDrawingUseCase={useCases.saveDreamDrawingUseCase}
+      isInfraredMode={themeName === 'infrared'}
       {...optionalProps}
     />
   );
