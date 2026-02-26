@@ -4,7 +4,7 @@ Base technique professionnelle pour une application mobile Expo/React Native ori
 
 ## Stack
 
-- Expo (SDK recent)
+- Expo (SDK 54)
 - React Native + TypeScript strict
 - pnpm
 - ESLint (Airbnb + TypeScript + React Native)
@@ -62,7 +62,7 @@ e2e/
 
 ## Prerequis
 
-- Node.js 20.11.x (LTS)
+- Node.js 20.19.x (LTS)
 - pnpm 9.15.5 (via Corepack)
 
 ## Installation
@@ -131,6 +131,6 @@ Release pipeline `.github/workflows/release.yml`:
 
 ## Prochaine etape
 
-1. Verrouiller les versions apres premier `pnpm install`
+1. Regenerer `pnpm-lock.yaml` apres la migration Expo SDK 54
 2. Ajouter une premiere feature metier avec tests
 3. Ajouter les tests e2e (Detox/Maestro) dans `e2e/`

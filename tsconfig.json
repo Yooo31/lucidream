@@ -8,7 +8,11 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "expo-file-system/legacy": ["app/types/expo-file-system-legacy"]
+    },
     "types": ["jest", "react-native"]
   },
-  "include": ["App.tsx", "app", "src", "jest.setup.ts"]
+  "include": ["App.tsx", "index.ts", "app", "src", "jest.setup.ts"]
 }
