@@ -35,6 +35,7 @@ describe('domain validation helpers', () => {
       expect(isLicenseType('ENTERPRISE')).toBe(false);
 
       expect(isUsageLogType('DREAM_CREATED')).toBe(true);
+      expect(isUsageLogType('AUDIO_PLAYED')).toBe(true);
       expect(isUsageLogType('SOMETHING_ELSE')).toBe(false);
     });
   });

@@ -21,6 +21,12 @@ export interface SaveFileInput {
   encoding?: FileContentEncoding;
 }
 
+export interface CopyFileFromUriInput {
+  id: string;
+  kind: StoredFileKind;
+  sourceUri: string;
+}
+
 export interface StoragePaths {
   rootDir: StorageRootUri;
   audioDir: AudioDirectoryUri;
@@ -30,6 +36,7 @@ export interface StoragePaths {
 export interface FileStorage {
   ensureDir(directory: StorageDirectoryUri): Promise<void>;
   save(input: SaveFileInput): Promise<StoredFilePath>;
+  copyFromUri(input: CopyFileFromUriInput): Promise<StoredFilePath>;
   read(path: StoredFilePath, encoding?: FileContentEncoding): Promise<string>;
   delete(path: StoredFilePath): Promise<void>;
 }

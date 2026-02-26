@@ -4,6 +4,7 @@ import type { StoredFilePath } from './types';
 interface MockExpoFileSystemModule extends ExpoFileSystemModule {
   makeDirectoryAsyncMock: jest.Mock<Promise<void>, [string, { intermediates?: boolean }?]>;
   writeAsStringAsyncMock: jest.Mock<Promise<void>, [string, string, { encoding?: string }?]>;
+  copyAsyncMock: jest.Mock<Promise<void>, [{ from: string; to: string }]>;
   readAsStringAsyncMock: jest.Mock<Promise<string>, [string, { encoding?: string }?]>;
   getInfoAsyncMock: jest.Mock<Promise<{ exists: boolean }>, [string]>;
   deleteAsyncMock: jest.Mock<Promise<void>, [string, { idempotent?: boolean }?]>;
@@ -15,6 +16,9 @@ function createMockFileSystemModule(options?: { exists?: boolean }): MockExpoFil
 
   const writeAsStringAsyncMock = jest.fn<Promise<void>, [string, string, { encoding?: string }?]>();
   writeAsStringAsyncMock.mockResolvedValue(undefined);
+
+  const copyAsyncMock = jest.fn<Promise<void>, [{ from: string; to: string }]>();
+  copyAsyncMock.mockResolvedValue(undefined);
 
   const readAsStringAsyncMock = jest.fn<Promise<string>, [string, { encoding?: string }?]>();
   readAsStringAsyncMock.mockResolvedValue('file-content');
@@ -40,6 +44,7 @@ function createMockFileSystemModule(options?: { exists?: boolean }): MockExpoFil
         encoding?: string;
       },
     ) => writeAsStringAsyncMock(uri, content, option),
+    copyAsync: (option: { from: string; to: string }) => copyAsyncMock(option),
     readAsStringAsync: (
       uri: string,
       option?: {
@@ -50,11 +55,38 @@ function createMockFileSystemModule(options?: { exists?: boolean }): MockExpoFil
     deleteAsync: (uri: string, option?: { idempotent?: boolean }) => deleteAsyncMock(uri, option),
     makeDirectoryAsyncMock,
     writeAsStringAsyncMock,
+    copyAsyncMock,
     readAsStringAsyncMock,
     getInfoAsyncMock,
     deleteAsyncMock,
   };
 }
+
+describe('ExpoFileStorage.copyFromUri', () => {
+  it('copies source audio file into local lucidream audio directory', async () => {
+    const fileSystemModule = createMockFileSystemModule();
+    const storage = new ExpoFileStorage({
+      fileSystemModule,
+      documentDirectory: 'file:///sandbox',
+    });
+
+    const storedPath = await storage.copyFromUri({
+      id: 'dream-42',
+      kind: 'audio',
+      sourceUri: 'file:///cache/audio-temp.m4a',
+    });
+
+    expect(storedPath).toBe('file:///sandbox/lucidream/audio/dream-42.m4a');
+    expect(fileSystemModule.makeDirectoryAsyncMock).toHaveBeenCalledWith(
+      'file:///sandbox/lucidream/audio',
+      { intermediates: true },
+    );
+    expect(fileSystemModule.copyAsyncMock).toHaveBeenCalledWith({
+      from: 'file:///cache/audio-temp.m4a',
+      to: 'file:///sandbox/lucidream/audio/dream-42.m4a',
+    });
+  });
+});
 
 describe('ExpoFileStorage.delete', () => {
   const audioPath = 'file:///sandbox/lucidream/audio/dream-42.m4a' as StoredFilePath;

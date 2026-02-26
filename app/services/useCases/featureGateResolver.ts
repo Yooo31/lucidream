@@ -95,12 +95,12 @@ export async function resolveFeatureGateFromRepositories(
       todayRange.endCreatedAt,
     ),
     dependencies.usageLogRepository.countByTypeAndCreatedAtRange(
-      'AUDIO_RECORDED',
+      'AUDIO_PLAYED',
       last7DaysRange.startCreatedAt,
       todayRange.endCreatedAt,
     ),
     dependencies.usageLogRepository.countByTypeAndCreatedAtRange(
-      'AUDIO_RECORDED',
+      'AUDIO_PLAYED',
       todayRange.startCreatedAt,
       todayRange.endCreatedAt,
     ),

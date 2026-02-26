@@ -3,6 +3,7 @@ export { createStoragePaths, createStoredFilePath, directoryForKind } from './pa
 export type {
   AudioDirectoryUri,
   AudioFilePath,
+  CopyFileFromUriInput,
   DrawingDirectoryUri,
   DrawingFilePath,
   FileContentEncoding,
