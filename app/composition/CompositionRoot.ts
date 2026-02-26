@@ -3,9 +3,11 @@ import { AudioPlayer, AudioRecorder } from '../infra/audio';
 import type { ThemeSettingsRepository } from '../theme/ThemeSettingsRepository';
 import {
   AddTagToDreamUseCase,
+  DeleteDreamAssetUseCase,
   CreateTagUseCase,
   CreateDreamUseCase,
   GetThemeSettingsUseCase,
+  ListDreamAssetsUseCase,
   ListDreamTagsUseCase,
   ListDreamsUseCase,
   PlayDreamAudioUseCase,
@@ -19,7 +21,7 @@ import {
   type TagRepository,
   type UsageLogRepository,
 } from '../services';
-import { ExpoFileStorage } from '../storage/files';
+import { ExpoFileStorage, type StoredFilePath } from '../storage/files';
 import {
   initializeDatabase as initializeSqliteDatabase,
   SqliteDreamRepository,
@@ -45,6 +47,8 @@ export interface AppUseCases {
   searchTagsUseCase: SearchTagsUseCase;
   createTagUseCase: CreateTagUseCase;
   listDreamTagsUseCase: ListDreamTagsUseCase;
+  listDreamAssetsUseCase: ListDreamAssetsUseCase;
+  deleteDreamAssetUseCase: DeleteDreamAssetUseCase;
   recordUsageLogUseCase: RecordUsageLogUseCase;
   recordDreamAudioUseCase: RecordDreamAudioUseCase;
   playDreamAudioUseCase: PlayDreamAudioUseCase;
@@ -114,6 +118,10 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
     ),
     createTagUseCase: new CreateTagUseCase(repositories.tagRepository, clock),
     listDreamTagsUseCase: new ListDreamTagsUseCase(repositories.tagRepository),
+    listDreamAssetsUseCase: new ListDreamAssetsUseCase(repositories.dreamRepository),
+    deleteDreamAssetUseCase: new DeleteDreamAssetUseCase(repositories.dreamRepository, {
+      delete: async (path) => fileStorage.delete(path as StoredFilePath),
+    }),
     recordUsageLogUseCase: new RecordUsageLogUseCase(repositories.usageLogRepository, clock),
     recordDreamAudioUseCase: new RecordDreamAudioUseCase(
       repositories.dreamRepository,

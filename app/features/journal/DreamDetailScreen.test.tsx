@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
-import { FakeClock, type Dream, type Tag } from '../../domain';
+import { FakeClock, type Dream, type DreamAsset, type Tag } from '../../domain';
 import {
+  DeleteDreamAssetUseCase,
+  ListDreamAssetsUseCase,
   PlayDreamAudioUseCase,
   SaveDreamDrawingUseCase,
   type DreamAudioPlayer,
@@ -597,5 +600,79 @@ describe('DreamDetailScreenView', () => {
       'file:///sandbox/lucidream/drawings/dream-1-drawing-1.png',
     );
     expect(drawingExporter.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes an asset by removing the repo row and deleting the local file after confirmation', async () => {
+    const dreamRepository = createDreamRepositoryMock();
+    const assetFileStore = {
+      delete: jest.fn<Promise<void>, [string]>(async () => undefined),
+    };
+    const listDreamAssetsUseCase = new ListDreamAssetsUseCase(dreamRepository);
+    const deleteDreamAssetUseCase = new DeleteDreamAssetUseCase(dreamRepository, assetFileStore);
+    const searchTagsUseCase = {
+      execute: jest.fn(async () => createSearchResult([])),
+    };
+    const createTagUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const addTagToDreamUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const listDreamTagsUseCase = {
+      execute: jest.fn(async () => ({
+        ok: true as const,
+        tags: [],
+      })),
+    };
+    const { recordDreamAudioUseCase, playDreamAudioUseCase } = createAudioControllers();
+    const dreamAsset: DreamAsset = {
+      id: 'asset-audio-1',
+      dreamId: BASE_DREAM.id,
+      type: 'AUDIO',
+      filePath: 'file:///sandbox/lucidream/audio/dream-1.m4a',
+      createdAt: BASE_DREAM.createdAt,
+    };
+
+    dreamRepository.listAssetsByDreamId
+      .mockResolvedValueOnce([dreamAsset])
+      .mockResolvedValueOnce([dreamAsset])
+      .mockResolvedValueOnce([]);
+    dreamRepository.getById.mockResolvedValue(BASE_DREAM);
+
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_, __, buttons) => {
+      const deleteButton = buttons?.find((button) => button.text === 'Delete');
+      if (deleteButton && typeof deleteButton.onPress === 'function') {
+        deleteButton.onPress();
+      }
+    });
+
+    render(
+      <DreamDetailScreenView
+        activeThemePalette={THEME_PALETTES.dark}
+        dream={BASE_DREAM}
+        searchTagsUseCase={searchTagsUseCase}
+        createTagUseCase={createTagUseCase}
+        addTagToDreamUseCase={addTagToDreamUseCase}
+        listDreamTagsUseCase={listDreamTagsUseCase}
+        listDreamAssetsUseCase={listDreamAssetsUseCase}
+        deleteDreamAssetUseCase={deleteDreamAssetUseCase}
+        recordDreamAudioUseCase={recordDreamAudioUseCase}
+        playDreamAudioUseCase={playDreamAudioUseCase}
+        saveDreamDrawingUseCase={createDrawingController()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('dream-detail-asset-delete-asset-audio-1')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('dream-detail-asset-delete-asset-audio-1'));
+
+    await waitFor(() => {
+      expect(dreamRepository.deleteAsset).toHaveBeenCalledWith(BASE_DREAM.id, dreamAsset.id);
+      expect(assetFileStore.delete).toHaveBeenCalledWith(dreamAsset.filePath);
+    });
+
+    alertSpy.mockRestore();
   });
 });
