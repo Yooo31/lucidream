@@ -7,6 +7,7 @@ import {
   DeleteDreamAssetUseCase,
   CreateTagUseCase,
   CreateDreamUseCase,
+  GetCurrentLicenseUseCase,
   GetRealityCheckSettingsUseCase,
   GetWbtbSettingsUseCase,
   GetThemeSettingsUseCase,
@@ -18,6 +19,7 @@ import {
   RecordDreamAudioUseCase,
   SaveDreamDrawingUseCase,
   SaveRealityCheckSettingsUseCase,
+  SetCurrentLicenseUseCase,
   SaveWbtbSettingsUseCase,
   SaveThemeSettingsUseCase,
   ScheduleRealityChecksUseCase,
@@ -66,6 +68,8 @@ export interface AppUseCases {
   recordDreamAudioUseCase: RecordDreamAudioUseCase;
   playDreamAudioUseCase: PlayDreamAudioUseCase;
   saveDreamDrawingUseCase: SaveDreamDrawingUseCase;
+  getCurrentLicenseUseCase: GetCurrentLicenseUseCase;
+  setCurrentLicenseUseCase: SetCurrentLicenseUseCase;
   getRealityCheckSettingsUseCase: GetRealityCheckSettingsUseCase;
   saveRealityCheckSettingsUseCase: SaveRealityCheckSettingsUseCase;
   getWbtbSettingsUseCase: GetWbtbSettingsUseCase;
@@ -188,6 +192,8 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
           }),
       },
     ),
+    getCurrentLicenseUseCase: new GetCurrentLicenseUseCase(repositories.licenseRepository),
+    setCurrentLicenseUseCase: new SetCurrentLicenseUseCase(repositories.licenseRepository),
     getRealityCheckSettingsUseCase: new GetRealityCheckSettingsUseCase(
       repositories.realityCheckSettingsRepository,
     ),

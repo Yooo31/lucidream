@@ -8,7 +8,7 @@ import {
 import type { Dream } from '../../domain';
 import { DreamDetailScreen, DreamHistoryScreen, QuickCaptureScreen } from '../journal';
 import { OniriPediaScreen } from '../pedia';
-import { SettingsScreen } from '../settings';
+import { LicenseScreen, SettingsScreen } from '../settings';
 import { PlaceholderScreen } from './PlaceholderScreen';
 
 type JournalStackParamList = {
@@ -27,6 +27,7 @@ type PediaStackParamList = {
 
 type SettingsStackParamList = {
   SettingsHome: undefined;
+  License: undefined;
 };
 
 type RootTabParamList = {
@@ -84,6 +85,18 @@ function PediaHomeScreen() {
   return <OniriPediaScreen />;
 }
 
+function SettingsHomeRouteScreen({
+  navigation,
+}: NativeStackScreenProps<SettingsStackParamList, 'SettingsHome'>) {
+  return <SettingsScreen onOpenLicenseScreen={() => navigation.navigate('License')} />;
+}
+
+function LicenseRouteScreen({
+  navigation,
+}: NativeStackScreenProps<SettingsStackParamList, 'License'>) {
+  return <LicenseScreen onBack={() => navigation.goBack()} />;
+}
+
 function JournalStackNavigator() {
   return (
     <JournalStack.Navigator screenOptions={stackScreenOptions}>
@@ -113,7 +126,8 @@ function PediaStackNavigator() {
 function SettingsStackNavigator() {
   return (
     <SettingsStack.Navigator screenOptions={stackScreenOptions}>
-      <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} />
+      <SettingsStack.Screen name="SettingsHome" component={SettingsHomeRouteScreen} />
+      <SettingsStack.Screen name="License" component={LicenseRouteScreen} />
     </SettingsStack.Navigator>
   );
 }

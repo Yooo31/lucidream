@@ -25,6 +25,9 @@
   `LICENSE_GATE_LIMITS`.
 - La limite de suggestion de recherche de tags est egalement centralisee dans cette matrice via
   `maxTagSearchResults`.
+- L'ecran `Settings > Local License` lit/ecrit `license_type` via les use-cases applicatifs
+  (`GetCurrentLicenseUseCase`, `SetCurrentLicenseUseCase`) et affiche un resume derive de
+  `resolveFeatureGateDecision`.
 
 ## SQLite Schema (v2)
 
