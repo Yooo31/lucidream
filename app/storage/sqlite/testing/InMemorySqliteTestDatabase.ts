@@ -47,6 +47,13 @@ interface LicenseRecord {
   rowid: number;
 }
 
+interface ThemeSettingsRecord {
+  id: number;
+  sleep_start_minutes: number;
+  sleep_end_minutes: number;
+  rowid: number;
+}
+
 interface DatabaseState {
   dreams: Map<string, DreamRecord>;
   tags: Map<string, TagRecord>;
@@ -54,6 +61,7 @@ interface DatabaseState {
   dreamAssets: Map<string, DreamAssetRecord>;
   usageLogs: Map<string, UsageLogRecord>;
   licenses: LicenseRecord[];
+  themeSettings: ThemeSettingsRecord | null;
   rowIdCounter: number;
 }
 
@@ -133,6 +141,7 @@ function cloneState(state: DatabaseState): DatabaseState {
       ]),
     ),
     licenses: state.licenses.map((row) => ({ ...row })),
+    themeSettings: state.themeSettings ? { ...state.themeSettings } : null,
     rowIdCounter: state.rowIdCounter,
   };
 }
@@ -145,6 +154,7 @@ function createInitialState(): DatabaseState {
     dreamAssets: new Map(),
     usageLogs: new Map(),
     licenses: [],
+    themeSettings: null,
     rowIdCounter: 1,
   };
 }
@@ -360,6 +370,25 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
       return undefined;
     }
 
+    if (sql === 'DELETE FROM THEME_SETTINGS') {
+      this.state.themeSettings = null;
+      return undefined;
+    }
+
+    if (
+      sql ===
+      'INSERT INTO THEME_SETTINGS (ID, SLEEP_START_MINUTES, SLEEP_END_MINUTES) VALUES (1, ?, ?)'
+    ) {
+      const [sleepStartMinutes, sleepEndMinutes] = params as [number, number];
+      this.state.themeSettings = {
+        id: 1,
+        sleep_start_minutes: sleepStartMinutes,
+        sleep_end_minutes: sleepEndMinutes,
+        rowid: this.nextRowId(),
+      };
+      return undefined;
+    }
+
     throw new Error(`Unsupported runAsync query in test database: ${source}`);
   }
 
@@ -451,6 +480,17 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
       }
       return castRow<T>({
         license_type: latest.license_type,
+      });
+    }
+
+    if (sql === 'SELECT SLEEP_START_MINUTES, SLEEP_END_MINUTES FROM THEME_SETTINGS WHERE ID = 1') {
+      if (!this.state.themeSettings) {
+        return null;
+      }
+
+      return castRow<T>({
+        sleep_start_minutes: this.state.themeSettings.sleep_start_minutes,
+        sleep_end_minutes: this.state.themeSettings.sleep_end_minutes,
       });
     }
 

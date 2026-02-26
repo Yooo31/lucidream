@@ -3,6 +3,7 @@ import type { Dream, Tag, UsageLog } from '../../domain';
 import { SqliteDreamRepository } from './SqliteDreamRepository';
 import { SqliteLicenseRepository } from './SqliteLicenseRepository';
 import { SqliteTagRepository } from './SqliteTagRepository';
+import { SqliteThemeSettingsRepository } from './SqliteThemeSettingsRepository';
 import { SqliteUsageLogRepository } from './SqliteUsageLogRepository';
 import { InMemorySqliteTestDatabase } from './testing/InMemorySqliteTestDatabase';
 
@@ -217,5 +218,25 @@ describe('sqlite repositories integration', () => {
 
     await licenseRepository.delete();
     expect(await licenseRepository.getCurrent()).toBeNull();
+  });
+
+  it('supports theme sleep window settings persistence', async () => {
+    const settingsRepository = new SqliteThemeSettingsRepository(database);
+    const firstSleepWindow = {
+      startMinutes: 23 * 60,
+      endMinutes: 7 * 60,
+    };
+    const secondSleepWindow = {
+      startMinutes: 21 * 60,
+      endMinutes: 5 * 60,
+    };
+
+    expect(await settingsRepository.getSleepWindow()).toBeNull();
+
+    await settingsRepository.saveSleepWindow(firstSleepWindow);
+    expect(await settingsRepository.getSleepWindow()).toEqual(firstSleepWindow);
+
+    await settingsRepository.saveSleepWindow(secondSleepWindow);
+    expect(await settingsRepository.getSleepWindow()).toEqual(secondSleepWindow);
   });
 });
