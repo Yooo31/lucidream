@@ -59,3 +59,13 @@ These instructions are mandatory for all future contributions to LuciDream V1.
 - Any feature that bypasses centralized feature-gating.
 - Any change that degrades wake-up flow speed or night mode safety.
 - Any PR missing DoD checks.
+
+## Execution Policy
+
+- Never attempt to execute pnpm, npm, git, or shell commands.
+- The Codex environment may not have required binaries installed.
+- Always provide:
+  - Patch-only file changes
+  - Local verification commands
+  - Proposed Conventional Commits
+- Assume validation happens locally and via CI.
