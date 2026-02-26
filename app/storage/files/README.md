@@ -4,6 +4,7 @@ LuciDream stores binary assets under Expo `documentDirectory` in an app-specific
 
 - Audio recordings (`.m4a`): `<documentDirectory>/lucidream/audio/<entry-id>.m4a`
 - Drawing exports (`.png`): `<documentDirectory>/lucidream/drawings/<entry-id>.png`
+- Journal CSV exports (`.csv`): `<documentDirectory>/lucidream/exports/<entry-id>.csv`
 
 Notes:
 

@@ -8,6 +8,7 @@ import {
   type WbtbSettings,
 } from '../../domain';
 import {
+  type ExportDreamsCsvResult,
   SaveRealityCheckSettingsUseCase,
   SaveWbtbSettingsUseCase,
   ScheduleRealityChecksUseCase,
@@ -68,6 +69,41 @@ function createWbtbSettingsWriter() {
       scheduledFor: null,
       autoStopAt: null,
     })),
+  };
+}
+
+function createFeatureGateDecision(exportEnabled: boolean) {
+  return {
+    evaluatedAt: Date.parse('2026-02-26T06:30:00.000Z'),
+    todayKey: '2026-02-26',
+    last7DaysWindowStartKey: '2026-02-20',
+    canCreateDream: true,
+    canPlayAudio: true,
+    canSendRC: true,
+    canUseWBTB: true,
+    canAddDrawing: true,
+    maxHistoryDays: 7,
+    maxDreamsPerDay: 2,
+    maxAudioPlaysLast7Days: 1,
+    maxAudioPlaysPerDay: null,
+    maxTagSearchResults: 5,
+    maxRcPerDay: 3,
+    maxWbtbUsesLast7Days: 1,
+    maxDrawingsPerDream: 1,
+    exportEnabled,
+  };
+}
+
+function createExportDreamsCsvUseCase(
+  result: ExportDreamsCsvResult = {
+    ok: true,
+    filePath: 'file:///sandbox/lucidream/exports/dreams-2026-02-26-1.csv',
+    exportedDreamCount: 2,
+    decision: createFeatureGateDecision(true),
+  },
+) {
+  return {
+    execute: jest.fn(async () => result),
   };
 }
 
@@ -145,6 +181,7 @@ describe('SettingsScreenView', () => {
     const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
     const loadWbtbSettingsUseCase = createWbtbSettingsReader(loadedWbtbSettings);
     const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
+    const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
     const onApplyThemeSettings = jest.fn<void, [ThemeSettings]>();
 
     render(
@@ -160,6 +197,7 @@ describe('SettingsScreenView', () => {
         saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
         loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
         saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
+        exportDreamsCsvUseCase={exportDreamsCsvUseCase}
         onApplyThemeSettings={onApplyThemeSettings}
       />,
     );
@@ -233,6 +271,7 @@ describe('SettingsScreenView', () => {
     const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
     const loadWbtbSettingsUseCase = createWbtbSettingsReader(initialWbtbSettings);
     const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
+    const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
 
     render(
       <SettingsScreenView
@@ -247,6 +286,7 @@ describe('SettingsScreenView', () => {
         saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
         loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
         saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
+        exportDreamsCsvUseCase={exportDreamsCsvUseCase}
         onApplyThemeSettings={jest.fn()}
       />,
     );
@@ -262,6 +302,49 @@ describe('SettingsScreenView', () => {
     expect(saveThemeSettingsUseCase.execute).not.toHaveBeenCalled();
     expect(saveRealityCheckSettingsUseCase.execute).not.toHaveBeenCalled();
     expect(saveWbtbSettingsUseCase.execute).not.toHaveBeenCalled();
+  });
+
+  it('shows a clear gate message when FREE blocks CSV export', async () => {
+    const loadThemeSettingsUseCase = createThemeSettingsReader(initialSettings);
+    const saveThemeSettingsUseCase = createThemeSettingsWriter();
+    const loadRealityCheckSettingsUseCase = createRealityCheckSettingsReader(
+      initialRealityCheckSettings,
+    );
+    const saveRealityCheckSettingsUseCase = createRealityCheckSettingsWriter();
+    const loadWbtbSettingsUseCase = createWbtbSettingsReader(initialWbtbSettings);
+    const saveWbtbSettingsUseCase = createWbtbSettingsWriter();
+    const exportDreamsCsvUseCase = createExportDreamsCsvUseCase({
+      ok: false,
+      code: 'EXPORT_NOT_AVAILABLE',
+      decision: createFeatureGateDecision(false),
+    });
+
+    render(
+      <SettingsScreenView
+        activeThemeName="dark"
+        activeThemePalette={THEME_PALETTES.dark}
+        initialSettings={initialSettings}
+        initialRealityCheckSettings={initialRealityCheckSettings}
+        initialWbtbSettings={initialWbtbSettings}
+        loadThemeSettingsUseCase={loadThemeSettingsUseCase}
+        saveThemeSettingsUseCase={saveThemeSettingsUseCase}
+        loadRealityCheckSettingsUseCase={loadRealityCheckSettingsUseCase}
+        saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
+        loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
+        saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
+        exportDreamsCsvUseCase={exportDreamsCsvUseCase}
+        onApplyThemeSettings={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('settings-export-dreams-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-error-message')).toHaveTextContent(
+        'CSV export is available on MEDIUM and PRO only. Change your local license to unlock it.',
+      );
+    });
+    expect(exportDreamsCsvUseCase.execute).toHaveBeenCalledTimes(1);
   });
 
   it('schedules notifications when saving reality check settings', async () => {
@@ -294,6 +377,7 @@ describe('SettingsScreenView', () => {
       settingsRepository,
       scheduleRealityChecksUseCase,
     );
+    const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
 
     render(
       <SettingsScreenView
@@ -308,6 +392,7 @@ describe('SettingsScreenView', () => {
         saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
         loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
         saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
+        exportDreamsCsvUseCase={exportDreamsCsvUseCase}
         onApplyThemeSettings={jest.fn()}
       />,
     );
@@ -365,6 +450,7 @@ describe('SettingsScreenView', () => {
       settingsRepository,
       scheduleWbtbAlarmUseCase,
     );
+    const exportDreamsCsvUseCase = createExportDreamsCsvUseCase();
 
     render(
       <SettingsScreenView
@@ -379,6 +465,7 @@ describe('SettingsScreenView', () => {
         saveRealityCheckSettingsUseCase={saveRealityCheckSettingsUseCase}
         loadWbtbSettingsUseCase={loadWbtbSettingsUseCase}
         saveWbtbSettingsUseCase={saveWbtbSettingsUseCase}
+        exportDreamsCsvUseCase={exportDreamsCsvUseCase}
         onApplyThemeSettings={jest.fn()}
       />,
     );

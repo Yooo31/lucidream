@@ -51,7 +51,8 @@ e2e/
 - ecran Settings: configuration locale `sleep window` + toggle `Auto Infrared mode` + Reality
   Checks (mode random ou every X hours, active hours, notification text), plus alarme WBTB locale
   (apres N heures de sommeil, auto-stop en X secondes), persistes en SQLite avec scheduling local
-  via `expo-notifications`
+  via `expo-notifications`; export CSV local du journal (`date,title,story,lucidity,quality,tags`)
+  disponible en licence `MEDIUM`/`PRO` uniquement
 - ecran Pedia: `Oniri-Pedia` offline avec pages statiques `Index`, `WILD`, `MILD`, `SSILD`,
   recherche locale simple sur titres + contenu, et typographie optimisee pour lecture nocturne
 - modules faiblement couples et testables

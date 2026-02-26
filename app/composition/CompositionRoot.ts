@@ -7,6 +7,7 @@ import {
   DeleteDreamAssetUseCase,
   CreateTagUseCase,
   CreateDreamUseCase,
+  ExportDreamsCsvUseCase,
   GetCurrentLicenseUseCase,
   GetRealityCheckSettingsUseCase,
   GetWbtbSettingsUseCase,
@@ -58,6 +59,7 @@ export interface AppRepositories {
 export interface AppUseCases {
   createDreamUseCase: CreateDreamUseCase;
   listDreamsUseCase: ListDreamsUseCase;
+  exportDreamsCsvUseCase: ExportDreamsCsvUseCase;
   addTagToDreamUseCase: AddTagToDreamUseCase;
   searchTagsUseCase: SearchTagsUseCase;
   createTagUseCase: CreateTagUseCase;
@@ -141,6 +143,22 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
       repositories.licenseRepository,
       repositories.usageLogRepository,
       clock,
+    ),
+    exportDreamsCsvUseCase: new ExportDreamsCsvUseCase(
+      repositories.dreamRepository,
+      repositories.tagRepository,
+      repositories.licenseRepository,
+      repositories.usageLogRepository,
+      clock,
+      {
+        saveUtf8Csv: async ({ fileId, content }) =>
+          fileStorage.save({
+            id: fileId,
+            kind: 'export',
+            content,
+            encoding: 'utf8',
+          }),
+      },
     ),
     addTagToDreamUseCase: new AddTagToDreamUseCase(
       repositories.dreamRepository,

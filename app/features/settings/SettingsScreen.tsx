@@ -9,6 +9,7 @@ import {
   type WbtbSettings,
 } from '../../domain';
 import { useCompositionRoot } from '../../composition';
+import type { ExportDreamsCsvResult } from '../../services';
 import {
   THEME_PALETTES,
   useTheme,
@@ -55,6 +56,10 @@ interface WbtbSettingsWriter {
   execute(settings: WbtbSettings): Promise<SaveWbtbSettingsResult>;
 }
 
+interface DreamsCsvExporter {
+  execute(): Promise<ExportDreamsCsvResult>;
+}
+
 export interface SettingsScreenViewProps {
   initialSettings: ThemeSettings;
   initialRealityCheckSettings: RealityCheckSettings;
@@ -67,6 +72,7 @@ export interface SettingsScreenViewProps {
   saveRealityCheckSettingsUseCase: RealityCheckSettingsWriter;
   loadWbtbSettingsUseCase: WbtbSettingsReader;
   saveWbtbSettingsUseCase: WbtbSettingsWriter;
+  exportDreamsCsvUseCase: DreamsCsvExporter;
   onApplyThemeSettings: (settings: ThemeSettings) => void;
   onOpenLicenseScreen?: () => void;
 }
@@ -311,6 +317,7 @@ export function SettingsScreenView({
   saveRealityCheckSettingsUseCase,
   loadWbtbSettingsUseCase,
   saveWbtbSettingsUseCase,
+  exportDreamsCsvUseCase,
   onApplyThemeSettings,
   onOpenLicenseScreen,
 }: SettingsScreenViewProps) {
@@ -347,6 +354,7 @@ export function SettingsScreenView({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     setSleepStart(formatMinuteOfDay(initialSettings.sleepWindow.startMinutes));
@@ -533,6 +541,43 @@ export function SettingsScreenView({
     }
   };
 
+  const handleExportDreamsCsv = async () => {
+    if (isExporting) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsExporting(true);
+
+    try {
+      const result = await exportDreamsCsvUseCase.execute();
+
+      if (!result.ok) {
+        if (result.code === 'EXPORT_NOT_AVAILABLE') {
+          setErrorMessage(
+            [
+              'CSV export is available on MEDIUM and PRO only.',
+              'Change your local license to unlock it.',
+            ].join(' '),
+          );
+          return;
+        }
+
+        setErrorMessage('Unable to export dreams to CSV right now.');
+        return;
+      }
+
+      setSuccessMessage(
+        `CSV exported locally (${result.exportedDreamCount} dreams): ${result.filePath}`,
+      );
+    } catch {
+      setErrorMessage('Unable to export dreams to CSV right now.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: activeThemePalette.background }]}>
       <Text
@@ -574,6 +619,26 @@ export function SettingsScreenView({
             style={[styles.secondaryActionButtonText, { color: activeThemePalette.textPrimary }]}
           >
             Open license screen
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={isExporting}
+          onPress={handleExportDreamsCsv}
+          style={[
+            styles.secondaryActionButton,
+            {
+              borderColor: activeThemePalette.textSecondary,
+              backgroundColor: 'transparent',
+              opacity: isExporting ? 0.7 : 1,
+            },
+          ]}
+          testID="settings-export-dreams-button"
+        >
+          <Text
+            style={[styles.secondaryActionButtonText, { color: activeThemePalette.textPrimary }]}
+          >
+            {isExporting ? 'Exporting CSV...' : 'Export dreams as CSV'}
           </Text>
         </Pressable>
       </View>
@@ -1019,6 +1084,7 @@ export function SettingsScreen({ onOpenLicenseScreen }: SettingsScreenProps) {
       saveRealityCheckSettingsUseCase={useCases.saveRealityCheckSettingsUseCase}
       loadWbtbSettingsUseCase={useCases.getWbtbSettingsUseCase}
       saveWbtbSettingsUseCase={useCases.saveWbtbSettingsUseCase}
+      exportDreamsCsvUseCase={useCases.exportDreamsCsvUseCase}
       onApplyThemeSettings={applyThemeSettings}
       {...(onOpenLicenseScreen ? { onOpenLicenseScreen } : {})}
     />
