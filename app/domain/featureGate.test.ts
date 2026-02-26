@@ -27,6 +27,7 @@ describe('LICENSE_GATE_LIMITS', () => {
         dreamsPerDay: 2,
         audioPlaysPer7Days: 1,
         audioPlaysPerDay: null,
+        tagSearchResults: 5,
         drawingsPerDream: 1,
         rcPerDay: 3,
         wbtbPer7Days: 1,
@@ -37,6 +38,7 @@ describe('LICENSE_GATE_LIMITS', () => {
         dreamsPerDay: 5,
         audioPlaysPer7Days: 4,
         audioPlaysPerDay: null,
+        tagSearchResults: 15,
         drawingsPerDream: 3,
         rcPerDay: 8,
         wbtbPer7Days: 4,
@@ -47,6 +49,7 @@ describe('LICENSE_GATE_LIMITS', () => {
         dreamsPerDay: null,
         audioPlaysPer7Days: null,
         audioPlaysPerDay: 2,
+        tagSearchResults: null,
         drawingsPerDream: 5,
         rcPerDay: null,
         wbtbPer7Days: null,
@@ -90,6 +93,7 @@ describe('resolveFeatureGateDecision', () => {
       expect(decision.maxDreamsPerDay).toBe(2);
       expect(decision.maxAudioPlaysLast7Days).toBe(1);
       expect(decision.maxAudioPlaysPerDay).toBeNull();
+      expect(decision.maxTagSearchResults).toBe(5);
       expect(decision.maxRcPerDay).toBe(3);
       expect(decision.maxWbtbUsesLast7Days).toBe(1);
       expect(decision.maxDrawingsPerDream).toBe(1);
@@ -140,6 +144,7 @@ describe('resolveFeatureGateDecision', () => {
       expect(decision.maxDreamsPerDay).toBe(5);
       expect(decision.maxAudioPlaysLast7Days).toBe(4);
       expect(decision.maxAudioPlaysPerDay).toBeNull();
+      expect(decision.maxTagSearchResults).toBe(15);
       expect(decision.maxRcPerDay).toBe(8);
       expect(decision.maxWbtbUsesLast7Days).toBe(4);
       expect(decision.maxDrawingsPerDream).toBe(3);
@@ -191,6 +196,7 @@ describe('resolveFeatureGateDecision', () => {
       expect(decision.maxDreamsPerDay).toBeNull();
       expect(decision.maxAudioPlaysLast7Days).toBeNull();
       expect(decision.maxAudioPlaysPerDay).toBe(2);
+      expect(decision.maxTagSearchResults).toBeNull();
       expect(decision.maxRcPerDay).toBeNull();
       expect(decision.maxWbtbUsesLast7Days).toBeNull();
       expect(decision.maxDrawingsPerDream).toBe(5);

@@ -120,6 +120,13 @@ describe('sqlite repositories integration', () => {
     expect(await tagRepository.getById(tagOne.id)).toEqual(tagOne);
     expect((await tagRepository.listAll()).map((tag) => tag.id)).toEqual([tagTwo.id, tagOne.id]);
     expect(await tagRepository.listByType('THEME')).toEqual([tagOne]);
+    expect(await tagRepository.findByNormalizedNameAndType('THEME', 'night')).toEqual(tagOne);
+    expect((await tagRepository.searchByTypeAndName('ACTION', 'run')).map((tag) => tag.id)).toEqual(
+      [tagTwo.id],
+    );
+    expect(
+      (await tagRepository.searchByTypeAndName('ACTION', 'run', 1)).map((tag) => tag.id),
+    ).toEqual([tagTwo.id]);
 
     await dreamRepository.create({
       id: 'dream-with-tags',

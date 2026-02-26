@@ -2,11 +2,14 @@ import { SystemClock, type Clock } from '../domain';
 import type { ThemeSettingsRepository } from '../theme/ThemeSettingsRepository';
 import {
   AddTagToDreamUseCase,
+  CreateTagUseCase,
   CreateDreamUseCase,
   GetThemeSettingsUseCase,
+  ListDreamTagsUseCase,
   ListDreamsUseCase,
   RecordUsageLogUseCase,
   SaveThemeSettingsUseCase,
+  SearchTagsUseCase,
   type DreamRepository,
   type LicenseRepository,
   type TagRepository,
@@ -34,6 +37,9 @@ export interface AppUseCases {
   createDreamUseCase: CreateDreamUseCase;
   listDreamsUseCase: ListDreamsUseCase;
   addTagToDreamUseCase: AddTagToDreamUseCase;
+  searchTagsUseCase: SearchTagsUseCase;
+  createTagUseCase: CreateTagUseCase;
+  listDreamTagsUseCase: ListDreamTagsUseCase;
   recordUsageLogUseCase: RecordUsageLogUseCase;
   getThemeSettingsUseCase: GetThemeSettingsUseCase;
   saveThemeSettingsUseCase: SaveThemeSettingsUseCase;
@@ -88,6 +94,15 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
       repositories.dreamRepository,
       repositories.tagRepository,
     ),
+    searchTagsUseCase: new SearchTagsUseCase(
+      repositories.tagRepository,
+      repositories.dreamRepository,
+      repositories.licenseRepository,
+      repositories.usageLogRepository,
+      clock,
+    ),
+    createTagUseCase: new CreateTagUseCase(repositories.tagRepository, clock),
+    listDreamTagsUseCase: new ListDreamTagsUseCase(repositories.tagRepository),
     recordUsageLogUseCase: new RecordUsageLogUseCase(repositories.usageLogRepository, clock),
     getThemeSettingsUseCase: new GetThemeSettingsUseCase(repositories.themeSettingsRepository),
     saveThemeSettingsUseCase: new SaveThemeSettingsUseCase(repositories.themeSettingsRepository),

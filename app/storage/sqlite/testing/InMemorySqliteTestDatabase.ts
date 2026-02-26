@@ -453,6 +453,29 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
       });
     }
 
+    if (
+      sql ===
+      'SELECT ID, NAME, TYPE, CREATED_AT FROM TAGS WHERE TYPE = ? AND LOWER(TRIM(NAME)) = ? ORDER BY CREATED_AT DESC, ID ASC LIMIT 1'
+    ) {
+      const [type, normalizedName] = params as [TagType, string];
+      const row = sortByCreatedAtDescIdAsc(
+        Array.from(this.state.tags.values()).filter(
+          (tag) => tag.type === type && tag.name.trim().toLowerCase() === normalizedName,
+        ),
+      )[0];
+
+      if (!row) {
+        return null;
+      }
+
+      return castRow<T>({
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        created_at: row.created_at,
+      });
+    }
+
     if (sql === 'SELECT ID, TYPE, CREATED_AT FROM USAGE_LOGS WHERE ID = ?') {
       const [id] = params as [string];
       const row = this.state.usageLogs.get(id);
@@ -613,6 +636,79 @@ export class InMemorySqliteTestDatabase implements SqliteDatabase {
             }
             return 0;
           })
+          .map((row) => ({
+            id: row.id,
+            name: row.name,
+            type: row.type,
+            created_at: row.created_at,
+          })),
+      );
+    }
+
+    if (
+      sql ===
+      'SELECT ID, NAME, TYPE, CREATED_AT FROM TAGS WHERE TYPE = ? AND LOWER(NAME) LIKE ? ORDER BY NAME ASC, ID ASC'
+    ) {
+      const [type, rawLike] = params as [TagType, string];
+      const query = rawLike.replace(/%/g, '');
+
+      return castRows<T>(
+        Array.from(this.state.tags.values())
+          .filter(
+            (row) => row.type === type && row.name.toLowerCase().includes(query.toLowerCase()),
+          )
+          .sort((left, right) => {
+            if (left.name < right.name) {
+              return -1;
+            }
+            if (left.name > right.name) {
+              return 1;
+            }
+            if (left.id < right.id) {
+              return -1;
+            }
+            if (left.id > right.id) {
+              return 1;
+            }
+            return 0;
+          })
+          .map((row) => ({
+            id: row.id,
+            name: row.name,
+            type: row.type,
+            created_at: row.created_at,
+          })),
+      );
+    }
+
+    if (
+      sql ===
+      'SELECT ID, NAME, TYPE, CREATED_AT FROM TAGS WHERE TYPE = ? AND LOWER(NAME) LIKE ? ORDER BY NAME ASC, ID ASC LIMIT ?'
+    ) {
+      const [type, rawLike, limit] = params as [TagType, string, number];
+      const query = rawLike.replace(/%/g, '');
+
+      return castRows<T>(
+        Array.from(this.state.tags.values())
+          .filter(
+            (row) => row.type === type && row.name.toLowerCase().includes(query.toLowerCase()),
+          )
+          .sort((left, right) => {
+            if (left.name < right.name) {
+              return -1;
+            }
+            if (left.name > right.name) {
+              return 1;
+            }
+            if (left.id < right.id) {
+              return -1;
+            }
+            if (left.id > right.id) {
+              return 1;
+            }
+            return 0;
+          })
+          .slice(0, limit)
           .map((row) => ({
             id: row.id,
             name: row.name,

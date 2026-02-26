@@ -23,6 +23,8 @@
     etc.) et limites exposees (`maxHistoryDays`, `maxDreamsPerDay`, ...).
 - La matrice monetisation (`FREE`, `MEDIUM`, `PRO`) est definie une seule fois dans
   `LICENSE_GATE_LIMITS`.
+- La limite de suggestion de recherche de tags est egalement centralisee dans cette matrice via
+  `maxTagSearchResults`.
 
 ## SQLite Schema (v2)
 
@@ -64,6 +66,9 @@
   - `CreateDreamUseCase`
   - `ListDreamsUseCase`
   - `AddTagToDreamUseCase`
+  - `SearchTagsUseCase`
+  - `CreateTagUseCase`
+  - `ListDreamTagsUseCase`
   - `RecordUsageLogUseCase`
 - Quota and entitlement checks are resolved in app layer through
   `app/services/useCases/featureGateResolver.ts`.
@@ -74,3 +79,5 @@
   quota counters coherent.
 - `ListDreamsUseCase` clamps the query start date to `maxHistoryDays` when the feature gate
   returns a bounded history window.
+- `SearchTagsUseCase` enforces `maxTagSearchResults` from feature gates before querying tag
+  suggestions for UI autocomplete.
