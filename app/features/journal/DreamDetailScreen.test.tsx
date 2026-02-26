@@ -23,6 +23,55 @@ function createSearchResult(tags: readonly Tag[]) {
   };
 }
 
+function createAudioPlaybackDecision() {
+  return {
+    maxAudioPlaysLast7Days: 1,
+    maxAudioPlaysPerDay: null,
+  };
+}
+
+function createAudioControllers() {
+  const recordDreamAudioUseCase = {
+    start: jest.fn(async () => ({ ok: true as const })),
+    stopAndAttach: jest.fn(async () => ({
+      ok: true as const,
+      dream: {
+        ...BASE_DREAM,
+        audioPath: 'file:///sandbox/lucidream/audio/dream-1.m4a',
+      },
+      audioPath: 'file:///sandbox/lucidream/audio/dream-1.m4a',
+    })),
+  };
+
+  const playDreamAudioUseCase = {
+    execute: jest.fn<
+      Promise<{
+        ok: boolean;
+        code?: string;
+        dream?: Dream;
+        decision?: {
+          maxAudioPlaysLast7Days: number | null;
+          maxAudioPlaysPerDay: number | null;
+        };
+      }>,
+      [{ dreamId: string }]
+    >(async () => ({
+      ok: true,
+      dream: {
+        ...BASE_DREAM,
+        audioPath: 'file:///sandbox/lucidream/audio/dream-1.m4a',
+      },
+      decision: createAudioPlaybackDecision(),
+    })),
+    stop: jest.fn(async () => undefined),
+  };
+
+  return {
+    recordDreamAudioUseCase,
+    playDreamAudioUseCase,
+  };
+}
+
 describe('DreamDetailScreenView', () => {
   it('adds an existing suggested tag to the dream', async () => {
     const suggestedTag: Tag = {
@@ -55,6 +104,7 @@ describe('DreamDetailScreenView', () => {
         tags: [],
       })),
     };
+    const { recordDreamAudioUseCase, playDreamAudioUseCase } = createAudioControllers();
 
     render(
       <DreamDetailScreenView
@@ -64,6 +114,8 @@ describe('DreamDetailScreenView', () => {
         createTagUseCase={createTagUseCase}
         addTagToDreamUseCase={addTagToDreamUseCase}
         listDreamTagsUseCase={listDreamTagsUseCase}
+        recordDreamAudioUseCase={recordDreamAudioUseCase}
+        playDreamAudioUseCase={playDreamAudioUseCase}
       />,
     );
 
@@ -120,6 +172,7 @@ describe('DreamDetailScreenView', () => {
         tags: [],
       })),
     };
+    const { recordDreamAudioUseCase, playDreamAudioUseCase } = createAudioControllers();
 
     render(
       <DreamDetailScreenView
@@ -129,6 +182,8 @@ describe('DreamDetailScreenView', () => {
         createTagUseCase={createTagUseCase}
         addTagToDreamUseCase={addTagToDreamUseCase}
         listDreamTagsUseCase={listDreamTagsUseCase}
+        recordDreamAudioUseCase={recordDreamAudioUseCase}
+        playDreamAudioUseCase={playDreamAudioUseCase}
       />,
     );
 
@@ -152,5 +207,150 @@ describe('DreamDetailScreenView', () => {
       tagId: createdTag.id,
     });
     expect(screen.getByText('Attached tag: Castle')).toBeTruthy();
+  });
+
+  it('records and attaches audio to the dream', async () => {
+    const searchTagsUseCase = {
+      execute: jest.fn(async () => createSearchResult([])),
+    };
+    const createTagUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const addTagToDreamUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const listDreamTagsUseCase = {
+      execute: jest.fn(async () => ({
+        ok: true as const,
+        tags: [],
+      })),
+    };
+    const { recordDreamAudioUseCase, playDreamAudioUseCase } = createAudioControllers();
+
+    render(
+      <DreamDetailScreenView
+        activeThemePalette={THEME_PALETTES.dark}
+        dream={BASE_DREAM}
+        searchTagsUseCase={searchTagsUseCase}
+        createTagUseCase={createTagUseCase}
+        addTagToDreamUseCase={addTagToDreamUseCase}
+        listDreamTagsUseCase={listDreamTagsUseCase}
+        recordDreamAudioUseCase={recordDreamAudioUseCase}
+        playDreamAudioUseCase={playDreamAudioUseCase}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('dream-detail-audio-record-toggle'));
+
+    await waitFor(() => {
+      expect(recordDreamAudioUseCase.start).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Stop')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('dream-detail-audio-record-toggle'));
+
+    await waitFor(() => {
+      expect(recordDreamAudioUseCase.stopAndAttach).toHaveBeenCalledWith({
+        dreamId: BASE_DREAM.id,
+      });
+      expect(screen.getByTestId('dream-detail-audio-item')).toHaveTextContent('dream-1.m4a');
+    });
+  });
+
+  it('blocks playback when license gate quota is reached', async () => {
+    const searchTagsUseCase = {
+      execute: jest.fn(async () => createSearchResult([])),
+    };
+    const createTagUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const addTagToDreamUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const listDreamTagsUseCase = {
+      execute: jest.fn(async () => ({
+        ok: true as const,
+        tags: [],
+      })),
+    };
+    const { recordDreamAudioUseCase, playDreamAudioUseCase } = createAudioControllers();
+
+    playDreamAudioUseCase.execute.mockResolvedValueOnce({
+      ok: false,
+      code: 'PLAYBACK_QUOTA_REACHED',
+      decision: {
+        maxAudioPlaysLast7Days: 1,
+        maxAudioPlaysPerDay: null,
+      },
+    });
+
+    render(
+      <DreamDetailScreenView
+        activeThemePalette={THEME_PALETTES.dark}
+        dream={{
+          ...BASE_DREAM,
+          audioPath: 'file:///sandbox/lucidream/audio/dream-1.m4a',
+        }}
+        searchTagsUseCase={searchTagsUseCase}
+        createTagUseCase={createTagUseCase}
+        addTagToDreamUseCase={addTagToDreamUseCase}
+        listDreamTagsUseCase={listDreamTagsUseCase}
+        recordDreamAudioUseCase={recordDreamAudioUseCase}
+        playDreamAudioUseCase={playDreamAudioUseCase}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('dream-detail-audio-play-button'));
+
+    await waitFor(() => {
+      expect(playDreamAudioUseCase.execute).toHaveBeenCalledWith({
+        dreamId: BASE_DREAM.id,
+      });
+      expect(screen.getByText('Playback limit reached (1 per 7 days).')).toBeTruthy();
+    });
+  });
+
+  it('plays attached audio when license gate allows playback', async () => {
+    const searchTagsUseCase = {
+      execute: jest.fn(async () => createSearchResult([])),
+    };
+    const createTagUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const addTagToDreamUseCase = {
+      execute: jest.fn(async () => ({ ok: false as const })),
+    };
+    const listDreamTagsUseCase = {
+      execute: jest.fn(async () => ({
+        ok: true as const,
+        tags: [],
+      })),
+    };
+    const { recordDreamAudioUseCase, playDreamAudioUseCase } = createAudioControllers();
+
+    render(
+      <DreamDetailScreenView
+        activeThemePalette={THEME_PALETTES.dark}
+        dream={{
+          ...BASE_DREAM,
+          audioPath: 'file:///sandbox/lucidream/audio/dream-1.m4a',
+        }}
+        searchTagsUseCase={searchTagsUseCase}
+        createTagUseCase={createTagUseCase}
+        addTagToDreamUseCase={addTagToDreamUseCase}
+        listDreamTagsUseCase={listDreamTagsUseCase}
+        recordDreamAudioUseCase={recordDreamAudioUseCase}
+        playDreamAudioUseCase={playDreamAudioUseCase}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('dream-detail-audio-play-button'));
+
+    await waitFor(() => {
+      expect(playDreamAudioUseCase.execute).toHaveBeenCalledWith({
+        dreamId: BASE_DREAM.id,
+      });
+      expect(screen.getByText('Playback started.')).toBeTruthy();
+    });
   });
 });

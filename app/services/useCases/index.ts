@@ -36,5 +36,19 @@ export {
   type RecordUsageLogResult,
   type UsageLogIdGenerator,
 } from './RecordUsageLogUseCase';
+export {
+  PlayDreamAudioUseCase,
+  type PlayDreamAudioInput,
+  type PlayDreamAudioResult,
+  type DreamAudioPlayer,
+} from './PlayDreamAudioUseCase';
+export {
+  RecordDreamAudioUseCase,
+  type StartDreamAudioRecordingResult,
+  type StopDreamAudioRecordingInput,
+  type StopDreamAudioRecordingResult,
+  type DreamAudioFileStore,
+  type DreamAudioRecorder,
+} from './RecordDreamAudioUseCase';
 export { GetThemeSettingsUseCase } from './GetThemeSettingsUseCase';
 export { SaveThemeSettingsUseCase } from './SaveThemeSettingsUseCase';

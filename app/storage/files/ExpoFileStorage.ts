@@ -2,6 +2,7 @@ import * as ExpoFileSystem from 'expo-file-system/legacy';
 
 import { createStoragePaths, createStoredFilePath, directoryForKind } from './paths';
 import type {
+  CopyFileFromUriInput,
   FileContentEncoding,
   FileStorage,
   SaveFileInput,
@@ -30,6 +31,11 @@ interface ExpoDeleteOptions {
   idempotent?: boolean;
 }
 
+interface ExpoCopyOptions {
+  from: string;
+  to: string;
+}
+
 interface ExpoEncodingType {
   Base64: string;
   UTF8: string;
@@ -40,6 +46,7 @@ export interface ExpoFileSystemModule {
   EncodingType: ExpoEncodingType;
   makeDirectoryAsync(uri: string, options?: ExpoDirectoryOptions): Promise<void>;
   writeAsStringAsync(uri: string, content: string, options?: ExpoWriteOptions): Promise<void>;
+  copyAsync(options: ExpoCopyOptions): Promise<void>;
   readAsStringAsync(uri: string, options?: ExpoReadOptions): Promise<string>;
   getInfoAsync(uri: string): Promise<ExpoFileInfo>;
   deleteAsync(uri: string, options?: ExpoDeleteOptions): Promise<void>;
@@ -55,6 +62,7 @@ const defaultFileSystemModule: ExpoFileSystemModule = {
   EncodingType: ExpoFileSystem.EncodingType,
   makeDirectoryAsync: ExpoFileSystem.makeDirectoryAsync,
   writeAsStringAsync: ExpoFileSystem.writeAsStringAsync,
+  copyAsync: ExpoFileSystem.copyAsync,
   readAsStringAsync: ExpoFileSystem.readAsStringAsync,
   getInfoAsync: ExpoFileSystem.getInfoAsync,
   deleteAsync: ExpoFileSystem.deleteAsync,
@@ -90,6 +98,19 @@ export class ExpoFileStorage implements FileStorage {
     await this.ensureDir(directory);
     await this.fileSystemModule.writeAsStringAsync(path, input.content, {
       encoding: this.toExpoEncoding(input.encoding ?? DEFAULT_ENCODING),
+    });
+
+    return path;
+  }
+
+  async copyFromUri(input: CopyFileFromUriInput): Promise<StoredFilePath> {
+    const directory = directoryForKind(this.storagePaths, input.kind);
+    const path = createStoredFilePath(this.storagePaths, input.kind, input.id);
+
+    await this.ensureDir(directory);
+    await this.fileSystemModule.copyAsync({
+      from: input.sourceUri,
+      to: path,
     });
 
     return path;

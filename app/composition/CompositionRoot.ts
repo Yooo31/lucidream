@@ -1,4 +1,5 @@
 import { SystemClock, type Clock } from '../domain';
+import { AudioPlayer, AudioRecorder } from '../infra/audio';
 import type { ThemeSettingsRepository } from '../theme/ThemeSettingsRepository';
 import {
   AddTagToDreamUseCase,
@@ -7,7 +8,9 @@ import {
   GetThemeSettingsUseCase,
   ListDreamTagsUseCase,
   ListDreamsUseCase,
+  PlayDreamAudioUseCase,
   RecordUsageLogUseCase,
+  RecordDreamAudioUseCase,
   SaveThemeSettingsUseCase,
   SearchTagsUseCase,
   type DreamRepository,
@@ -15,6 +18,7 @@ import {
   type TagRepository,
   type UsageLogRepository,
 } from '../services';
+import { ExpoFileStorage } from '../storage/files';
 import {
   initializeDatabase as initializeSqliteDatabase,
   SqliteDreamRepository,
@@ -41,6 +45,8 @@ export interface AppUseCases {
   createTagUseCase: CreateTagUseCase;
   listDreamTagsUseCase: ListDreamTagsUseCase;
   recordUsageLogUseCase: RecordUsageLogUseCase;
+  recordDreamAudioUseCase: RecordDreamAudioUseCase;
+  playDreamAudioUseCase: PlayDreamAudioUseCase;
   getThemeSettingsUseCase: GetThemeSettingsUseCase;
   saveThemeSettingsUseCase: SaveThemeSettingsUseCase;
 }
@@ -68,6 +74,9 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
     dependencies.initializeDatabase ?? (async () => initializeSqliteDatabase());
   const database = await initializeDatabase();
   const clock = dependencies.clock ?? new SystemClock();
+  const audioRecorder = new AudioRecorder();
+  const audioPlayer = new AudioPlayer();
+  const fileStorage = new ExpoFileStorage();
 
   const repositories: AppRepositories = {
     dreamRepository: new SqliteDreamRepository(database),
@@ -104,6 +113,23 @@ export const createCompositionRoot: CreateCompositionRoot = async (dependencies 
     createTagUseCase: new CreateTagUseCase(repositories.tagRepository, clock),
     listDreamTagsUseCase: new ListDreamTagsUseCase(repositories.tagRepository),
     recordUsageLogUseCase: new RecordUsageLogUseCase(repositories.usageLogRepository, clock),
+    recordDreamAudioUseCase: new RecordDreamAudioUseCase(
+      repositories.dreamRepository,
+      repositories.usageLogRepository,
+      clock,
+      audioRecorder,
+      {
+        saveFromUri: async ({ dreamId, sourceUri }) =>
+          fileStorage.copyFromUri({ id: dreamId, kind: 'audio', sourceUri }),
+      },
+    ),
+    playDreamAudioUseCase: new PlayDreamAudioUseCase(
+      repositories.dreamRepository,
+      repositories.licenseRepository,
+      repositories.usageLogRepository,
+      clock,
+      audioPlayer,
+    ),
     getThemeSettingsUseCase: new GetThemeSettingsUseCase(repositories.themeSettingsRepository),
     saveThemeSettingsUseCase: new SaveThemeSettingsUseCase(repositories.themeSettingsRepository),
   };

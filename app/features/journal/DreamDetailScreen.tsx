@@ -37,6 +37,28 @@ interface DreamTagReader {
   }>;
 }
 
+interface DreamAudioRecorderController {
+  start(): Promise<{ ok: boolean }>;
+  stopAndAttach(input: { dreamId: string }): Promise<{
+    ok: boolean;
+    dream?: Dream;
+    audioPath?: string;
+    code?: string;
+  }>;
+}
+
+interface DreamAudioPlayerController {
+  execute(input: { dreamId: string }): Promise<{
+    ok: boolean;
+    code?: string;
+    decision?: {
+      maxAudioPlaysLast7Days: number | null;
+      maxAudioPlaysPerDay: number | null;
+    };
+  }>;
+  stop(): Promise<void>;
+}
+
 const TAG_TYPE_OPTIONS: ReadonlyArray<{ type: TagType; label: string }> = [
   { type: 'CHARACTER', label: 'Character' },
   { type: 'LOCATION', label: 'Place' },
@@ -45,6 +67,19 @@ const TAG_TYPE_OPTIONS: ReadonlyArray<{ type: TagType; label: string }> = [
 ];
 
 const styles = StyleSheet.create({
+  audioButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 10,
+    minHeight: 42,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  audioButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   backButton: {
     alignSelf: 'flex-start',
     borderRadius: 10,
@@ -210,6 +245,29 @@ function toGroupedTagValue(tags: readonly Tag[], type: TagType): string {
   return names.join(', ');
 }
 
+function toAudioPlaybackLimitMessage(decision: {
+  maxAudioPlaysLast7Days: number | null;
+  maxAudioPlaysPerDay: number | null;
+}): string {
+  if (decision.maxAudioPlaysPerDay !== null) {
+    return `Playback limit reached (${decision.maxAudioPlaysPerDay} per day).`;
+  }
+
+  if (decision.maxAudioPlaysLast7Days !== null) {
+    return `Playback limit reached (${decision.maxAudioPlaysLast7Days} per 7 days).`;
+  }
+
+  return 'Audio playback is currently unavailable.';
+}
+
+function toFileName(path: string): string {
+  const normalizedPath = path.trim();
+  const segments = normalizedPath.split('/');
+  const fileName = segments[segments.length - 1];
+
+  return fileName && fileName.length > 0 ? fileName : normalizedPath;
+}
+
 interface DreamDetailScreenViewProps {
   activeThemePalette: ThemePalette;
   dream: Dream;
@@ -217,6 +275,8 @@ interface DreamDetailScreenViewProps {
   createTagUseCase: DreamTagCreator;
   addTagToDreamUseCase: DreamTagAssigner;
   listDreamTagsUseCase: DreamTagReader;
+  recordDreamAudioUseCase: DreamAudioRecorderController;
+  playDreamAudioUseCase: DreamAudioPlayerController;
   onBack?: () => void;
 }
 
@@ -227,6 +287,8 @@ export function DreamDetailScreenView({
   createTagUseCase,
   addTagToDreamUseCase,
   listDreamTagsUseCase,
+  recordDreamAudioUseCase,
+  playDreamAudioUseCase,
   onBack,
 }: DreamDetailScreenViewProps) {
   const [localDream, setLocalDream] = useState(dream);
@@ -238,6 +300,10 @@ export function DreamDetailScreenView({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioErrorMessage, setAudioErrorMessage] = useState<string | null>(null);
+  const [audioStatusMessage, setAudioStatusMessage] = useState<string | null>(null);
+  const [isAudioSubmitting, setIsAudioSubmitting] = useState(false);
 
   const lucidityScore = inferLucidityScore(localDream.quality);
   const normalizedSearchQuery = useMemo(() => normalizeTagName(searchQuery), [searchQuery]);
@@ -245,6 +311,13 @@ export function DreamDetailScreenView({
   useEffect(() => {
     setLocalDream(dream);
   }, [dream]);
+
+  useEffect(
+    () => () => {
+      playDreamAudioUseCase.stop().catch(() => undefined);
+    },
+    [playDreamAudioUseCase],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -411,6 +484,97 @@ export function DreamDetailScreenView({
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleRecording = async () => {
+    if (isAudioSubmitting) {
+      return;
+    }
+
+    setIsAudioSubmitting(true);
+    setAudioErrorMessage(null);
+    setAudioStatusMessage(null);
+
+    try {
+      if (!isRecording) {
+        const startResult = await recordDreamAudioUseCase.start();
+
+        if (!startResult.ok) {
+          setAudioErrorMessage('Unable to start recording.');
+          return;
+        }
+
+        setIsRecording(true);
+        setAudioStatusMessage('Recording in progress. Tap Stop to attach.');
+        return;
+      }
+
+      const stopResult = await recordDreamAudioUseCase.stopAndAttach({
+        dreamId: localDream.id,
+      });
+
+      setIsRecording(false);
+
+      if (!stopResult.ok || stopResult.dream === undefined || stopResult.audioPath === undefined) {
+        if (stopResult.code === 'DREAM_NOT_FOUND') {
+          setAudioErrorMessage('Dream no longer exists.');
+          return;
+        }
+
+        if (stopResult.code === 'AUDIO_SAVE_FAILED') {
+          setAudioErrorMessage('Unable to save audio locally.');
+          return;
+        }
+
+        if (stopResult.code === 'RECORDING_STOP_FAILED') {
+          setAudioErrorMessage('Unable to stop recording.');
+          return;
+        }
+
+        setAudioErrorMessage('Unable to attach recorded audio.');
+        return;
+      }
+
+      setLocalDream(stopResult.dream);
+      setAudioStatusMessage(`Attached audio: ${toFileName(stopResult.audioPath)}`);
+    } finally {
+      setIsAudioSubmitting(false);
+    }
+  };
+
+  const handlePlayAudio = async () => {
+    if (isAudioSubmitting || !localDream.audioPath) {
+      return;
+    }
+
+    setIsAudioSubmitting(true);
+    setAudioErrorMessage(null);
+    setAudioStatusMessage(null);
+
+    try {
+      const result = await playDreamAudioUseCase.execute({
+        dreamId: localDream.id,
+      });
+
+      if (!result.ok) {
+        if (result.code === 'PLAYBACK_QUOTA_REACHED' && result.decision) {
+          setAudioErrorMessage(toAudioPlaybackLimitMessage(result.decision));
+          return;
+        }
+
+        if (result.code === 'AUDIO_NOT_AVAILABLE') {
+          setAudioErrorMessage('No attached audio to play.');
+          return;
+        }
+
+        setAudioErrorMessage('Unable to play attached audio.');
+        return;
+      }
+
+      setAudioStatusMessage('Playback started.');
+    } finally {
+      setIsAudioSubmitting(false);
     }
   };
 
@@ -661,12 +825,58 @@ export function DreamDetailScreenView({
           },
         ]}
       >
-        <Text style={[styles.rowLabel, { color: activeThemePalette.textSecondary }]}>
-          Audio Path
-        </Text>
-        <Text style={[styles.rowValue, { color: activeThemePalette.textPrimary }]}>
-          {toOptionalValue(localDream.audioPath)}
-        </Text>
+        <Text style={[styles.rowLabel, { color: activeThemePalette.textSecondary }]}>Audio</Text>
+        {localDream.audioPath ? (
+          <Text
+            style={[styles.rowValue, { color: activeThemePalette.textPrimary }]}
+            testID="dream-detail-audio-item"
+          >
+            {toFileName(localDream.audioPath)}
+          </Text>
+        ) : (
+          <Text style={[styles.rowValue, { color: activeThemePalette.textPrimary }]}>
+            No attached audio.
+          </Text>
+        )}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            handleToggleRecording().catch(() => undefined);
+          }}
+          style={[
+            styles.audioButton,
+            {
+              borderColor: activeThemePalette.textSecondary,
+              backgroundColor: '#141414',
+            },
+          ]}
+          testID="dream-detail-audio-record-toggle"
+        >
+          <Text style={[styles.audioButtonText, { color: activeThemePalette.textPrimary }]}>
+            {isRecording ? 'Stop' : 'Record'}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            handlePlayAudio().catch(() => undefined);
+          }}
+          style={[
+            styles.audioButton,
+            {
+              borderColor: activeThemePalette.textSecondary,
+              backgroundColor: localDream.audioPath ? '#121212' : '#0F0F0F',
+              opacity: localDream.audioPath ? 1 : 0.55,
+            },
+          ]}
+          testID="dream-detail-audio-play-button"
+        >
+          <Text style={[styles.audioButtonText, { color: activeThemePalette.textPrimary }]}>
+            Play attached audio
+          </Text>
+        </Pressable>
+        {audioErrorMessage ? <Text style={styles.errorText}>{audioErrorMessage}</Text> : null}
+        {audioStatusMessage ? <Text style={styles.infoText}>{audioStatusMessage}</Text> : null}
       </View>
 
       <View
@@ -727,6 +937,8 @@ export function DreamDetailScreen({ dream, onBack }: DreamDetailScreenProps) {
       createTagUseCase={useCases.createTagUseCase}
       addTagToDreamUseCase={useCases.addTagToDreamUseCase}
       listDreamTagsUseCase={useCases.listDreamTagsUseCase}
+      recordDreamAudioUseCase={useCases.recordDreamAudioUseCase}
+      playDreamAudioUseCase={useCases.playDreamAudioUseCase}
       {...optionalProps}
     />
   );
