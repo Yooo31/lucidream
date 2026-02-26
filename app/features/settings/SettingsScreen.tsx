@@ -68,6 +68,7 @@ export interface SettingsScreenViewProps {
   loadWbtbSettingsUseCase: WbtbSettingsReader;
   saveWbtbSettingsUseCase: WbtbSettingsWriter;
   onApplyThemeSettings: (settings: ThemeSettings) => void;
+  onOpenLicenseScreen?: () => void;
 }
 
 const styles = StyleSheet.create({
@@ -159,6 +160,18 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '700',
+    textAlign: 'center',
+  },
+  secondaryActionButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  secondaryActionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
     textAlign: 'center',
   },
   section: {
@@ -299,6 +312,7 @@ export function SettingsScreenView({
   loadWbtbSettingsUseCase,
   saveWbtbSettingsUseCase,
   onApplyThemeSettings,
+  onOpenLicenseScreen,
 }: SettingsScreenViewProps) {
   const [sleepStart, setSleepStart] = useState<string>(
     formatMinuteOfDay(initialSettings.sleepWindow.startMinutes),
@@ -527,6 +541,42 @@ export function SettingsScreenView({
       >
         Settings
       </Text>
+
+      <View
+        style={[
+          styles.section,
+          {
+            backgroundColor: '#101010',
+            borderColor: activeThemePalette.textSecondary,
+            borderWidth: 1,
+          },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: activeThemePalette.textPrimary }]}>
+          License
+        </Text>
+        <Text style={[styles.sectionDescription, { color: activeThemePalette.textSecondary }]}>
+          Manage FREE, MEDIUM, and PRO locally with feature-gate limits preview.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onOpenLicenseScreen}
+          style={[
+            styles.secondaryActionButton,
+            {
+              borderColor: activeThemePalette.textSecondary,
+              backgroundColor: 'transparent',
+            },
+          ]}
+          testID="settings-open-license-button"
+        >
+          <Text
+            style={[styles.secondaryActionButtonText, { color: activeThemePalette.textPrimary }]}
+          >
+            Open license screen
+          </Text>
+        </Pressable>
+      </View>
 
       <View
         style={[
@@ -945,7 +995,11 @@ export function SettingsScreenView({
   );
 }
 
-export function SettingsScreen() {
+interface SettingsScreenProps {
+  onOpenLicenseScreen?: () => void;
+}
+
+export function SettingsScreen({ onOpenLicenseScreen }: SettingsScreenProps) {
   const { useCases } = useCompositionRoot();
   const { sleepWindow, autoInfraredEnabled, themeName, colors, applyThemeSettings } = useTheme();
 
@@ -966,6 +1020,7 @@ export function SettingsScreen() {
       loadWbtbSettingsUseCase={useCases.getWbtbSettingsUseCase}
       saveWbtbSettingsUseCase={useCases.saveWbtbSettingsUseCase}
       onApplyThemeSettings={applyThemeSettings}
+      {...(onOpenLicenseScreen ? { onOpenLicenseScreen } : {})}
     />
   );
 }

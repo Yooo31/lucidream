@@ -14,7 +14,16 @@ jest.mock('../settings', () => {
     );
   }
 
-  return { SettingsScreen };
+  function LicenseScreen() {
+    return React.createElement(
+      View,
+      null,
+      React.createElement(Text, null, 'License screen'),
+      React.createElement(Text, null, 'Local entitlement controls'),
+    );
+  }
+
+  return { SettingsScreen, LicenseScreen };
 });
 
 jest.mock('../journal', () => {

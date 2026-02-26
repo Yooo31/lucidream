@@ -88,3 +88,5 @@ export {
 } from './ScheduleWbtbAlarmUseCase';
 export { GetThemeSettingsUseCase } from './GetThemeSettingsUseCase';
 export { SaveThemeSettingsUseCase } from './SaveThemeSettingsUseCase';
+export { GetCurrentLicenseUseCase } from './GetCurrentLicenseUseCase';
+export { SetCurrentLicenseUseCase } from './SetCurrentLicenseUseCase';
