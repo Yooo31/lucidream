@@ -1,15 +1,12 @@
-import {
-  assertWbtbSettings,
-  resolveFeatureGateDecision,
-  type Clock,
-  type FeatureGateCounts,
-  type LicenseType,
-  type WbtbSettings,
-} from '../../domain';
+import { assertWbtbSettings, type Clock, type WbtbSettings } from '../../domain';
 import type { NotificationsClient } from '../../infra/notifications';
 import type { LicenseRepository, UsageLogRepository } from '../repositories';
 
-import { getUtcTrailingDayRange } from './featureGateResolver';
+import {
+  getUtcTrailingDayRange,
+  resolveFeatureGateFromLicenseAndCounts,
+  resolveLicenseTypeOrFree,
+} from './featureGateResolver';
 import { RecordUsageLogUseCase } from './RecordUsageLogUseCase';
 
 export const WBTB_ALARM_NOTIFICATION_IDENTIFIER = 'wbtb-alarm-start';
@@ -25,21 +22,6 @@ export interface ScheduleWbtbAlarmResult {
   maxWbtbUsesLast7Days: number | null;
   scheduledFor: number | null;
   autoStopAt: number | null;
-}
-
-function createWbtbCounts(wbtbUsedLast7Days: number): FeatureGateCounts {
-  return {
-    dreamsCreatedToday: 0,
-    audioPlaysLast7Days: 0,
-    audioPlaysToday: 0,
-    rcSentToday: 0,
-    wbtbUsedLast7Days,
-    drawingsPerDreamCount: 0,
-  };
-}
-
-async function getLicenseTypeOrFree(licenseRepository: LicenseRepository): Promise<LicenseType> {
-  return (await licenseRepository.getCurrent()) ?? 'FREE';
 }
 
 export class ScheduleWbtbAlarmUseCase {
@@ -78,17 +60,25 @@ export class ScheduleWbtbAlarmUseCase {
     }
 
     const now = this.clock.now();
-    const licenseType = await getLicenseTypeOrFree(this.licenseRepository);
+    const licenseType = await resolveLicenseTypeOrFree(this.licenseRepository);
     const last7DaysRange = getUtcTrailingDayRange(now, 7);
     const wbtbUsedLast7Days = await this.usageLogRepository.countByTypeAndCreatedAtRange(
       'WBTB_SCHEDULED',
       last7DaysRange.startCreatedAt,
       last7DaysRange.endCreatedAt,
     );
-    const decision = resolveFeatureGateDecision(
-      licenseType,
-      createWbtbCounts(wbtbUsedLast7Days),
-      this.clock,
+    const decision = await resolveFeatureGateFromLicenseAndCounts(
+      {
+        licenseRepository: this.licenseRepository,
+        clock: this.clock,
+      },
+      {
+        wbtbUsedLast7Days,
+      },
+      {
+        evaluatedAt: now,
+        licenseType,
+      },
     );
 
     if (!decision.canUseWBTB) {

@@ -63,8 +63,54 @@ export interface ResolveFeatureGateOptions {
   drawingsPerDreamCount?: number;
 }
 
-async function getLicenseTypeOrFree(licenseRepository: LicenseRepository): Promise<LicenseType> {
+function createClockAtTimestamp(timestamp: number): Clock {
+  return {
+    now: () => timestamp,
+    todayKey: () => toUtcDayKey(timestamp),
+  };
+}
+
+function createFeatureGateCounts(overrides: Partial<FeatureGateCounts>): FeatureGateCounts {
+  return {
+    dreamsCreatedToday: overrides.dreamsCreatedToday ?? 0,
+    audioPlaysLast7Days: overrides.audioPlaysLast7Days ?? 0,
+    audioPlaysToday: overrides.audioPlaysToday ?? 0,
+    rcSentToday: overrides.rcSentToday ?? 0,
+    wbtbUsedLast7Days: overrides.wbtbUsedLast7Days ?? 0,
+    drawingsPerDreamCount: normalizeNonNegativeInteger(overrides.drawingsPerDreamCount),
+  };
+}
+
+export interface FeatureGateByCountsDependencies {
+  licenseRepository: LicenseRepository;
+  clock: Clock;
+}
+
+export interface ResolveFeatureGateByCountsOptions {
+  evaluatedAt?: number;
+  licenseType?: LicenseType;
+}
+
+export async function resolveLicenseTypeOrFree(
+  licenseRepository: LicenseRepository,
+): Promise<LicenseType> {
   return (await licenseRepository.getCurrent()) ?? 'FREE';
+}
+
+export async function resolveFeatureGateFromLicenseAndCounts(
+  dependencies: FeatureGateByCountsDependencies,
+  counts: Partial<FeatureGateCounts>,
+  options: ResolveFeatureGateByCountsOptions = {},
+): Promise<FeatureGateDecision> {
+  const licenseType =
+    options.licenseType ?? (await resolveLicenseTypeOrFree(dependencies.licenseRepository));
+  const evaluatedAt = options.evaluatedAt ?? dependencies.clock.now();
+
+  return resolveFeatureGateDecision(
+    licenseType,
+    createFeatureGateCounts(counts),
+    createClockAtTimestamp(evaluatedAt),
+  );
 }
 
 export async function resolveFeatureGateFromRepositories(
@@ -84,7 +130,7 @@ export async function resolveFeatureGateFromRepositories(
     rcSentToday,
     wbtbUsedLast7Days,
   ] = await Promise.all([
-    getLicenseTypeOrFree(dependencies.licenseRepository),
+    resolveLicenseTypeOrFree(dependencies.licenseRepository),
     dependencies.dreamRepository.countByCreatedAtRange(
       todayRange.startCreatedAt,
       todayRange.endCreatedAt,
@@ -125,5 +171,15 @@ export async function resolveFeatureGateFromRepositories(
     drawingsPerDreamCount: normalizeNonNegativeInteger(options.drawingsPerDreamCount),
   };
 
-  return resolveFeatureGateDecision(licenseType, counts, dependencies.clock);
+  return resolveFeatureGateFromLicenseAndCounts(
+    {
+      licenseRepository: dependencies.licenseRepository,
+      clock: dependencies.clock,
+    },
+    counts,
+    {
+      evaluatedAt: now,
+      licenseType,
+    },
+  );
 }
