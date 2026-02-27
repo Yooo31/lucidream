@@ -38,14 +38,36 @@ function loadExpoNotificationsNamespace(): ExpoNotificationsNamespace {
   return namespace as ExpoNotificationsNamespace;
 }
 
-export function createDefaultExpoNotificationsModule(): ExpoNotificationsModule {
-  const notifications = loadExpoNotificationsNamespace();
+function createUnavailableNotificationsModule(error: unknown): ExpoNotificationsModule {
+  const message =
+    error instanceof Error && error.message.length > 0
+      ? error.message
+      : 'Notifications are unavailable in this build.';
+  const unavailable = async (): Promise<never> => {
+    throw new Error(message);
+  };
 
   return {
-    scheduleNotificationAsync: notifications.scheduleNotificationAsync,
-    cancelScheduledNotificationAsync: notifications.cancelScheduledNotificationAsync,
-    cancelAllScheduledNotificationsAsync: notifications.cancelAllScheduledNotificationsAsync,
-    getPermissionsAsync: notifications.getPermissionsAsync,
-    requestPermissionsAsync: notifications.requestPermissionsAsync,
+    scheduleNotificationAsync: unavailable,
+    cancelScheduledNotificationAsync: unavailable,
+    cancelAllScheduledNotificationsAsync: unavailable,
+    getPermissionsAsync: unavailable,
+    requestPermissionsAsync: unavailable,
   };
+}
+
+export function createDefaultExpoNotificationsModule(): ExpoNotificationsModule {
+  try {
+    const notifications = loadExpoNotificationsNamespace();
+
+    return {
+      scheduleNotificationAsync: notifications.scheduleNotificationAsync,
+      cancelScheduledNotificationAsync: notifications.cancelScheduledNotificationAsync,
+      cancelAllScheduledNotificationsAsync: notifications.cancelAllScheduledNotificationsAsync,
+      getPermissionsAsync: notifications.getPermissionsAsync,
+      requestPermissionsAsync: notifications.requestPermissionsAsync,
+    };
+  } catch (error) {
+    return createUnavailableNotificationsModule(error);
+  }
 }
