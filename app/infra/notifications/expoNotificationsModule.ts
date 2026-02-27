@@ -5,24 +5,16 @@ declare const require: RequireFunction | undefined;
 
 type ExpoNotificationsNamespace = ExpoNotificationsModule;
 
-function resolveRequireFunction(): RequireFunction | undefined {
-  if (typeof require === 'function') {
-    return require;
-  }
-
-  const candidate = (globalThis as Record<string, unknown>).require;
-  return typeof candidate === 'function' ? (candidate as RequireFunction) : undefined;
-}
-
 function loadExpoNotificationsNamespace(): ExpoNotificationsNamespace {
-  const requireFunction = resolveRequireFunction();
-  if (!requireFunction) {
+  if (typeof require !== 'function') {
     throw new Error(
       'Module loader is unavailable. Ensure expo-notifications is installed and bundled.',
     );
   }
 
-  const moduleValue = requireFunction('expo-notifications');
+  // Use a direct require call so Metro includes expo-notifications in the module graph.
+  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+  const moduleValue = require('expo-notifications');
   const namespace = moduleValue as Partial<ExpoNotificationsNamespace>;
 
   if (
