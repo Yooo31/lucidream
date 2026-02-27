@@ -27,22 +27,14 @@ interface ExpoAudioNamespace {
   };
 }
 
-function resolveRequireFunction(): RequireFunction | undefined {
-  if (typeof require === 'function') {
-    return require;
-  }
-
-  const candidate = (globalThis as Record<string, unknown>).require;
-  return typeof candidate === 'function' ? (candidate as RequireFunction) : undefined;
-}
-
 function loadExpoAudioNamespace(): ExpoAudioNamespace {
-  const requireFunction = resolveRequireFunction();
-  if (!requireFunction) {
+  if (typeof require !== 'function') {
     throw new Error('Module loader is unavailable. Ensure expo-av is installed and bundled.');
   }
 
-  const moduleValue = requireFunction('expo-av');
+  // Use a direct require call so Metro includes expo-av in the module graph.
+  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+  const moduleValue = require('expo-av');
   const namespace = moduleValue as Partial<ExpoAudioNamespace>;
 
   if (!namespace.Audio) {
