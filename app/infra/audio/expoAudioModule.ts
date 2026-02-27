@@ -52,15 +52,44 @@ function loadExpoAudioNamespace(): ExpoAudioNamespace {
   return namespace as ExpoAudioNamespace;
 }
 
-export function createDefaultAudioModule(): AudioModule {
-  const { Audio } = loadExpoAudioNamespace();
+function createUnavailableAudioModule(error: unknown): AudioModule {
+  const message =
+    error instanceof Error && error.message.length > 0
+      ? error.message
+      : 'Audio features are unavailable in this build.';
+  const unavailable = async (): Promise<never> => {
+    throw new Error(message);
+  };
 
   return {
-    requestPermissionsAsync: Audio.requestPermissionsAsync,
-    setAudioModeAsync: Audio.setAudioModeAsync,
-    createRecording: () => new Audio.Recording(),
-    recordingOptionsPresets: Audio.RecordingOptionsPresets,
-    createSoundAsync: (source, onPlaybackStatusUpdate) =>
-      Audio.Sound.createAsync(source, undefined, onPlaybackStatusUpdate),
+    requestPermissionsAsync: unavailable,
+    setAudioModeAsync: unavailable,
+    createRecording: () => ({
+      prepareToRecordAsync: unavailable,
+      startAsync: unavailable,
+      stopAndUnloadAsync: unavailable,
+      getURI: () => null,
+    }),
+    recordingOptionsPresets: {
+      HIGH_QUALITY: {},
+    },
+    createSoundAsync: unavailable,
   };
+}
+
+export function createDefaultAudioModule(): AudioModule {
+  try {
+    const { Audio } = loadExpoAudioNamespace();
+
+    return {
+      requestPermissionsAsync: Audio.requestPermissionsAsync,
+      setAudioModeAsync: Audio.setAudioModeAsync,
+      createRecording: () => new Audio.Recording(),
+      recordingOptionsPresets: Audio.RecordingOptionsPresets,
+      createSoundAsync: (source, onPlaybackStatusUpdate) =>
+        Audio.Sound.createAsync(source, undefined, onPlaybackStatusUpdate),
+    };
+  } catch (error) {
+    return createUnavailableAudioModule(error);
+  }
 }
